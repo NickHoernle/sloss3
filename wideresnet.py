@@ -102,7 +102,7 @@ class WideResNet(nn.Module):
 
     @property
     def local_parameters(self):
-        return [p for k,p in self.named_parameters() if "net" not in k]
+        return [p for k, p in self.named_parameters() if "net" not in k]
 
     @property
     def global_paramters(self):

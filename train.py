@@ -166,10 +166,18 @@ def main():
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
 
         # override the oprimizer from above
-        optimizer = torch.optim.SGD(model.local_parameters, args.lr,
-                                    momentum=args.momentum, nesterov=args.nesterov,
+        optimizer = torch.optim.SGD(model.parameters(),
+                                    args.lr,
+                                    momentum=args.momentum,
+                                    nesterov=args.nesterov,
                                     weight_decay=args.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
+
+    if args.sloss:
+        for i in range(10):
+            # train for logic outcome
+            train_logic(model, logic_net, calc_logic, examples,
+                        logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, i, device=device)
 
     for epoch in range(args.start_epoch, args.epochs):
         if args.sloss:
@@ -225,9 +233,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, params, c
             preds, true = calc_logic(output, target)
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
             # loss += logic_loss_.mean()
-            if epoch > 0:
-                # loss += recon_loss
-                loss += logic_loss_[~true].sum() / len(true)
+            # loss += recon_loss
+            loss += logic_loss_[~true].sum() / len(true)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
@@ -340,8 +347,7 @@ def train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder
         logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
         # loss = logic_loss_.mean()
         loss = 0
-        if epoch > 0:
-            loss += logic_loss_[~true].sum() / len(true)
+        loss += logic_loss_[~true].sum() / len(true)
         loss += F.cross_entropy(samps, tgts)
 
         loss.backward()
@@ -358,14 +364,13 @@ def train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % 100 == 0:
-            print('\tLogic Train: [{0}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Logic Loss {logic_loss.val:.4f} ({logic_loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                epoch, batch_time=batch_time,
-                loss=losses, logic_loss=logic_losses, top1=top1))
+    print('Logic Train: [{0}]\t'
+          'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+          'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+          'Logic Loss {logic_loss.val:.4f} ({logic_loss.avg:.4f})\t'
+          'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+        epoch, batch_time=batch_time,
+        loss=losses, logic_loss=logic_losses, top1=top1))
 
     # log to TensorBoard
     if args.tensorboard:
