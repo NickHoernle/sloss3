@@ -70,7 +70,7 @@ best_prec1 = 0
 def main():
     global args, best_prec1
     args = parser.parse_args()
-    if args.tensorboard: configure("runs/%s"%(args.name))
+    if args.tensorboard: configure(args.checkpoint_dir+"/%s"%(args.name))
 
     # Data loading code
     normalize = transforms.Normalize(mean=[x/255.0 for x in [125.3, 123.0, 113.9]],
@@ -379,7 +379,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     filename = directory + filename
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, 'runs/%s/'%(args.name) + 'model_best.pth.tar')
+        shutil.copyfile(filename, args.checkpoint_dir+'/%s/'%(args.name) + 'model_best.pth.tar')
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
