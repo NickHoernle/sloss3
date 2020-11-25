@@ -152,6 +152,8 @@ def main():
         examples, logic_fn = get_cifar10_experiment_params(train_loader.dataset)
         assert logic_fn(torch.arange(10), examples).all()
 
+        examples = examples.to(device)
+
         logic_net = LogicNet(num_classes=len(train_loader.dataset.classes))
         logic_net.to(device)
 
@@ -179,7 +181,7 @@ def main():
         train(train_loader, model, criterion, optimizer, scheduler, epoch, args, calc_logic, device=device)
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch, device=device)
+        prec1 = validate(val_loader, model, criterion, epoch, args, device=device)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
