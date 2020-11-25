@@ -25,13 +25,14 @@ from symbolic import (
 )
 
 # used for logging to TensorBoard
-from tensorboard_logger import configure, log_value
+# from tensorboard_logger import configure, log_value
 
 parser = argparse.ArgumentParser(description='PyTorch WideResNet Training')
 parser.add_argument('--dataset', default='cifar10', type=str,
                     help='dataset (cifar10 [default] or cifar100)')
 parser.add_argument('--dataset_path', default='../data', type=str,
                     help='path to where the data are stored')
+parser.add_argument("--checkpoint_dir", default="runs")
 parser.add_argument('--epochs', default=200, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
@@ -60,8 +61,7 @@ parser.add_argument('--resume', default='', type=str,
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--name', default='WideResNet-28-10', type=str,
                     help='name of experiment')
-parser.add_argument('--tensorboard',
-                    help='Log progress to TensorBoard', action='store_true')
+parser.add_argument('--tensorboard', help='Log progress to TensorBoard', action='store_true')
 parser.set_defaults(augment=True)
 parser.set_defaults(sloss=True)
 
@@ -373,7 +373,7 @@ def train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     """Saves checkpoint to disk"""
-    directory = "runs/%s/"%(args.name)
+    directory = args.checkpoint_dir+"/%s/"%(args.name)
     if not os.path.exists(directory):
         os.makedirs(directory)
     filename = directory + filename

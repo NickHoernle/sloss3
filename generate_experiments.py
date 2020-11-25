@@ -12,7 +12,8 @@ SCRATCH_HOME = f'{SCRATCH_DISK}/{USER}'
 DATA_HOME = f'{SCRATCH_HOME}/vaelib'
 base_call = (f"python train.py --dataset cifar10 "
              f"--dataset_path ../semantic_loss/data/vaelib/ "
-             f"--layers 28 --widen-factor 2")
+             f"--layers 28 --widen-factor 2 "
+             f"--checkpoint_dir {DATA_HOME}/logs/ ")
 
 repeats = 1
 
