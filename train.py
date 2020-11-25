@@ -173,12 +173,6 @@ def main():
                                     weight_decay=args.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
 
-    if args.sloss:
-        for i in range(10):
-            # train for logic outcome
-            train_logic(model, logic_net, calc_logic, examples,
-                        logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, i, device=device)
-
     for epoch in range(args.start_epoch, args.epochs):
         if args.sloss:
             # train for logic outcome
@@ -226,7 +220,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, params, c
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
             loss = 0
-            loss += recon_loss
+            weight = np.max([1., epoch / 25])
+            loss += weight*recon_loss
             kld = -0.5 * torch.sum(1 + lv - np.log(9.) - (mu.pow(2) + lv.exp()) / 9., dim=-1).mean()
             loss += kld
 
@@ -234,7 +229,7 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, params, c
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
             # loss += logic_loss_.mean()
             # loss += recon_loss
-            loss += logic_loss_[~true].sum() / len(true)
+            loss += weight*logic_loss_[~true].sum() / len(true)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
@@ -321,12 +316,13 @@ def train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder
     logic_losses = AverageMeter()
     top1 = AverageMeter()
 
-    model.train()
-
     end = time.time()
     for i in range(1000):
         # train the logic net
         logic_net.train()
+        model.eval()
+        
+        logic_optimizer.zero_grad()
 
         samps, tgts, thet = model.sample(1000)
         preds, true = calc_logic(samps, tgts)
@@ -334,11 +330,11 @@ def train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder
         preds, true = calc_logic(examples, torch.arange(10).to(device))
         logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
 
-        logic_optimizer.zero_grad()
         logic_loss.backward()
         logic_optimizer.step()
-        logic_net.eval()
 
+        logic_net.eval()
+        model.train()
         # train the network to obey the logic
         decoder_optimizer.zero_grad()
 
