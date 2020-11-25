@@ -166,21 +166,21 @@ def main():
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
 
         # override the oprimizer from above
-        optimizer = torch.optim.SGD(model.parameters(),
-                                    args.lr,
-                                    momentum=args.momentum,
-                                    nesterov=args.nesterov,
-                                    weight_decay=args.weight_decay)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
+        # optimizer = torch.optim.SGD(model.parameters(),
+        #                             args.lr,
+        #                             momentum=args.momentum,
+        #                             nesterov=args.nesterov,
+        #                             weight_decay=args.weight_decay)
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
 
     for epoch in range(args.start_epoch, args.epochs):
+        # train for one epoch
+        train(train_loader, model, criterion, optimizer, scheduler, epoch, args, calc_logic, device=device)
+        
         if args.sloss:
             # train for logic outcome
             train_logic(model, logic_net, calc_logic, examples,
                         logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, epoch, device=device)
-
-        # train for one epoch
-        train(train_loader, model, criterion, optimizer, scheduler, epoch, args, calc_logic, device=device)
 
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion, epoch, args, device=device)
@@ -321,7 +321,7 @@ def train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder
         # train the logic net
         logic_net.train()
         model.eval()
-        
+
         logic_optimizer.zero_grad()
 
         samps, tgts, thet = model.sample(1000)
