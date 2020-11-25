@@ -172,7 +172,8 @@ def main():
     for epoch in range(args.start_epoch, args.epochs):
         if args.sloss:
             # train for logic outcome
-            train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, epoch, device=device)
+            train_logic(model, logic_net, calc_logic, examples,
+                        logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, epoch, device=device)
 
         # train for one epoch
         train(train_loader, model, criterion, optimizer, scheduler, epoch, args, calc_logic, device=device)
@@ -321,7 +322,7 @@ def train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder
         samps, tgts, thet = model.sample(1000)
         preds, true = calc_logic(samps, tgts)
         logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
-        preds, true = calc_logic(examples, torch.arange(10))
+        preds, true = calc_logic(examples, torch.arange(10).to(device))
         logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
 
         logic_optimizer.zero_grad()
