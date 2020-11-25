@@ -14,7 +14,15 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from torch.autograd import Variable
 
+import numpy as np
+
 from wideresnet import WideResNet
+
+from symbolic import (
+    get_cifar10_experiment_params,
+    calc_logic_loss,
+    LogicNet
+)
 
 # used for logging to TensorBoard
 from tensorboard_logger import configure, log_value
@@ -22,6 +30,8 @@ from tensorboard_logger import configure, log_value
 parser = argparse.ArgumentParser(description='PyTorch WideResNet Training')
 parser.add_argument('--dataset', default='cifar10', type=str,
                     help='dataset (cifar10 [default] or cifar100)')
+parser.add_argument('--dataset_path', default='../data', type=str,
+                    help='path to where the data are stored')
 parser.add_argument('--epochs', default=200, type=int,
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int,
@@ -44,6 +54,8 @@ parser.add_argument('--droprate', default=0, type=float,
                     help='dropout probability (default: 0.0)')
 parser.add_argument('--no-augment', dest='augment', action='store_false',
                     help='whether to use standard augmentation (default: True)')
+parser.add_argument('--no-sloss', dest='sloss', action='store_false',
+                    help='whether to use semantic logic loss (default: True)')
 parser.add_argument('--resume', default='', type=str,
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--name', default='WideResNet-28-10', type=str,
@@ -51,6 +63,7 @@ parser.add_argument('--name', default='WideResNet-28-10', type=str,
 parser.add_argument('--tensorboard',
                     help='Log progress to TensorBoard', action='store_true')
 parser.set_defaults(augment=True)
+parser.set_defaults(sloss=True)
 
 best_prec1 = 0
 
@@ -87,16 +100,19 @@ def main():
     kwargs = {'num_workers': 1, 'pin_memory': True}
     assert(args.dataset == 'cifar10' or args.dataset == 'cifar100')
     train_loader = torch.utils.data.DataLoader(
-        datasets.__dict__[args.dataset.upper()]('../data', train=True, download=True,
+        datasets.__dict__[args.dataset.upper()](args.dataset_path, train=True, download=True,
                          transform=transform_train),
         batch_size=args.batch_size, shuffle=True, **kwargs)
     val_loader = torch.utils.data.DataLoader(
-        datasets.__dict__[args.dataset.upper()]('../data', train=False, transform=transform_test),
+        datasets.__dict__[args.dataset.upper()](args.dataset_path, train=False, transform=transform_test),
         batch_size=args.batch_size, shuffle=True, **kwargs)
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # create model
     model = WideResNet(args.layers, args.dataset == 'cifar10' and 10 or 100,
-                            args.widen_factor, dropRate=args.droprate)
+                            args.widen_factor, dropRate=args.droprate,
+                            semantic_loss=args.sloss, device=device)
 
     # get the number of model parameters
     print('Number of model parameters: {}'.format(
@@ -105,7 +121,7 @@ def main():
     # for training on multiple GPUs.
     # Use CUDA_VISIBLE_DEVICES=0,1 to specify which GPUs to use
     # model = torch.nn.DataParallel(model).cuda()
-    model = model.cuda()
+    model = model.to(device)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -123,20 +139,46 @@ def main():
     cudnn.benchmark = True
 
     # define loss function (criterion) and optimizer
-    criterion = nn.CrossEntropyLoss().cuda()
+    criterion = nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
-                                momentum=args.momentum, nesterov = args.nesterov,
+                                momentum=args.momentum, nesterov=args.nesterov,
                                 weight_decay=args.weight_decay)
 
     # cosine learning rate
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+    calc_logic = None
+
+    if args.sloss:
+        examples, logic_fn = get_cifar10_experiment_params(train_loader.dataset)
+        assert logic_fn(torch.arange(10), examples).all()
+
+        logic_net = LogicNet(num_classes=len(train_loader.dataset.classes))
+        logic_net.to(device)
+
+        logic_optimizer = torch.optim.Adam(logic_net.parameters(), 1e-3)
+        logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs)
+
+        decoder_optimizer = torch.optim.Adam(model.global_paramters, 1e-3)
+        decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs)
+
+        calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
+
+        # override the oprimizer from above
+        optimizer = torch.optim.SGD(model.local_parameters, args.lr,
+                                    momentum=args.momentum, nesterov=args.nesterov,
+                                    weight_decay=args.weight_decay)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
 
     for epoch in range(args.start_epoch, args.epochs):
+        if args.sloss:
+            # train for logic outcome
+            train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, epoch, device=device)
+
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, scheduler, epoch)
+        train(train_loader, model, criterion, optimizer, scheduler, epoch, args, calc_logic, device=device)
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch)
+        prec1 = validate(val_loader, model, criterion, epoch, device=device)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -148,7 +190,8 @@ def main():
         }, is_best)
     print('Best accuracy: ', best_prec1)
 
-def train(train_loader, model, criterion, optimizer, scheduler, epoch):
+
+def train(train_loader, model, criterion, optimizer, scheduler, epoch, params, calc_logic=None, device="cuda"):
     """Train for one epoch on the training set"""
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -159,12 +202,29 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
 
     end = time.time()
     for i, (input, target) in enumerate(train_loader):
-        target = target.cuda(non_blocking=True)
-        input = input.cuda(non_blocking=True)
+        # target = target.cuda(non_blocking=True)
+        # input = input.cuda(non_blocking=True)
+        target = target.to(device, non_blocking=True)
+        input = input.to(device, non_blocking=True)
 
         # compute output
-        output = model(input)
-        loss = criterion(output, target)
+        if not params.sloss:
+            output = model(input)
+            loss = criterion(output, target)
+        else:
+            output, (mu, lv), theta = model(input)
+            recon_loss = criterion(output, target)
+            loss = 0
+            loss += recon_loss
+            kld = -0.5 * torch.sum(1 + lv - np.log(9.) - (mu.pow(2) + lv.exp()) / 9., dim=-1).mean()
+            loss += kld
+
+            preds, true = calc_logic(output, target)
+            logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
+            # loss += logic_loss_.mean()
+            if epoch > 0:
+                # loss += recon_loss
+                loss += logic_loss_[~true].sum() / len(true)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
@@ -193,7 +253,8 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch):
         log_value('train_loss', losses.avg, epoch)
         log_value('train_acc', top1.avg, epoch)
 
-def validate(val_loader, model, criterion, epoch):
+
+def validate(val_loader, model, criterion, epoch, params, device="cuda"):
     """Perform validation on the validation set"""
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -204,13 +265,20 @@ def validate(val_loader, model, criterion, epoch):
 
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
-        target = target.cuda(non_blocking=True)
-        input = input.cuda(non_blocking=True)
+        # target = target.cuda(non_blocking=True)
+        # input = input.cuda(non_blocking=True)
+        target = target.to(device, non_blocking=True)
+        input = input.to(device, non_blocking=True)
 
         # compute output
-        with torch.no_grad():
-            output = model(input)
-        loss = criterion(output, target)
+        if not params.sloss:
+            with torch.no_grad():
+                output = model(input)
+            loss = criterion(output, target)
+        else:
+            with torch.no_grad():
+                output, (mu, lv), theta = model(input)
+            loss = criterion(output, target)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
@@ -235,6 +303,71 @@ def validate(val_loader, model, criterion, epoch):
         log_value('val_loss', losses.avg, epoch)
         log_value('val_acc', top1.avg, epoch)
     return top1.avg
+
+
+def train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, epoch, device):
+    batch_time = AverageMeter()
+    losses = AverageMeter()
+    logic_losses = AverageMeter()
+    top1 = AverageMeter()
+
+    model.train()
+
+    end = time.time()
+    for i in range(1000):
+        # train the logic net
+        logic_net.train()
+
+        samps, tgts, thet = model.sample(1000)
+        preds, true = calc_logic(samps, tgts)
+        logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
+        preds, true = calc_logic(examples, torch.arange(10))
+        logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
+
+        logic_optimizer.zero_grad()
+        logic_loss.backward()
+        logic_optimizer.step()
+        logic_net.eval()
+
+        # train the network to obey the logic
+        decoder_optimizer.zero_grad()
+
+        samps, tgts, thet = model.sample(1000)
+        preds, true = calc_logic(samps, tgts)
+        logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
+        # loss = logic_loss_.mean()
+        loss = 0
+        if epoch > 0:
+            loss += logic_loss_[~true].sum() / len(true)
+        loss += F.cross_entropy(samps, tgts)
+
+        loss.backward()
+        decoder_optimizer.step()
+
+        logic_scheduler.step()
+        decoder_scheduler.step()
+
+        logic_losses.update(logic_loss.data.item(), 1000)
+        losses.update(loss.data.item(), 1000)
+        prec1 = accuracy(samps.data, tgts, topk=(1,))[0]
+        top1.update(prec1.item(), 1000)
+
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if i % 100 == 0:
+            print('\tLogic Train: [{0}]\t'
+                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Logic Loss {logic_loss.val:.4f} ({logic_loss.avg:.4f})\t'
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+                epoch, batch_time=batch_time,
+                loss=losses, logic_loss=logic_losses, top1=top1))
+
+    # log to TensorBoard
+    if args.tensorboard:
+        log_value('train_logic_loss', losses.avg, epoch)
+        log_value('train_logic_acc', top1.avg, epoch)
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
