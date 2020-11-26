@@ -157,10 +157,10 @@ def main():
         logic_net = LogicNet(num_classes=len(train_loader.dataset.classes))
         logic_net.to(device)
 
-        logic_optimizer = torch.optim.Adam(logic_net.parameters(), 1e-3)
+        logic_optimizer = torch.optim.Adam(logic_net.parameters(), 1e-2)
         logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs)
 
-        decoder_optimizer = torch.optim.Adam(model.global_paramters, 1e-3)
+        decoder_optimizer = torch.optim.Adam(model.global_paramters, 1e-2)
         decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs)
 
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
