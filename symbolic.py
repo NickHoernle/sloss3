@@ -40,9 +40,9 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
 
     def logic_statement(target, within_group_ix, outside_group_ix):
         return f"(target=={target}) & " + \
-               f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
-               '&'.join([f'(predictions[:, {within_group_ix}] >= predictions[:, {i}].unsqueeze(1)).all(dim=1)' for i in
-                         outside_group_ix])
+               f"(predictions[:, {target}] >= 0) & " + \
+               f"(predictions[:, {within_group_ix}] >= -2).all(dim=1) & " + \
+               f"(predictions[:, {outside_group_ix}] < -5).all(dim=1)"
 
     statement = []
     for a in animate_ix:
@@ -56,8 +56,6 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
 
 
 def get_cifar10_experiment_params(dataset):
-    examples = torch.ones(10, 10)
-    examples *= -6
 
     classes = dataset.classes
 
@@ -67,13 +65,16 @@ def get_cifar10_experiment_params(dataset):
     animate_ix = [i for i,l in enumerate(classes) if l in animate]
     inanimate_ix = [i for i, l in enumerate(classes) if l in inanimate]
 
+    examples = torch.ones(10, 10)
+    examples *= -6
+
     for a in animate_ix:
-        examples[a, animate_ix] = 1
+        examples[a, animate_ix] = -1
 
     for ia in inanimate_ix:
-        examples[ia, inanimate_ix] = 1
+        examples[ia, inanimate_ix] = -1
 
-    examples[torch.arange(10), torch.arange(10)] = 6
+    examples[torch.arange(10), torch.arange(10)] = 1
 
     return examples, create_cifar10_logic(animate_ix, inanimate_ix)
 
@@ -88,4 +89,4 @@ def calc_logic_loss(predictions, targets, logic_net, logic_func, device):
 if __name__ == "__main__":
     animate = [0,1,2,3,4]
     inanimate = [5,6,7,8,9]
-    create_cifar10_logic(animate, inanimate)
+    test = create_cifar10_logic(animate, inanimate)

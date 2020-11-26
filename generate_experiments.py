@@ -20,7 +20,7 @@ repeats = 1
 experiment = "cifar10"
 dataset = [experiment]
 learning_rate = [.1, .01, .001]
-sloss = [True, False]
+sloss = [True]
 sloss_weight=[.1, .01]
 
 settings = [(lr, sloss_, sw_, dataset_, rep)
