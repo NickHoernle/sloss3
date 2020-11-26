@@ -269,7 +269,7 @@ def train(train_loader, model, logic_net,
             recon_loss = criterion(output, target)
             loss = 0
             loss += recon_loss
-            kld = -0.5 * (1 + lv - np.log(9.) - (mu.pow(2) + lv.exp()) / 9.).sum(dim=1).mean()
+            kld = -0.5 * (1 + lv - np.log(9.) - (mu.pow(2) + lv.exp()) / 9.).mean()
             loss += kld
 
             preds, true = calc_logic(output, target)
