@@ -39,9 +39,9 @@ class LogicNet(nn.Module):
 def create_cifar10_logic(animate_ix, inaminate_ix):
 
     def logic_statement(target, within_group_ix, outside_group_ix):
-        return f"(tgts=={target}) & " + \
-               f"(preds[:, {target}].unsqueeze(1) >= preds).all(dim=1) & " + \
-               '&'.join([f'(preds[:, {within_group_ix}] >= preds[:, {i}].unsqueeze(1)).all(dim=1)' for i in
+        return f"(target=={target}) & " + \
+               f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
+               '&'.join([f'(predictions[:, {within_group_ix}] >= predictions[:, {i}].unsqueeze(1)).all(dim=1)' for i in
                          outside_group_ix])
 
     statement = []
