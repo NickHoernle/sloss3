@@ -40,9 +40,8 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
 
     def logic_statement(target, within_group_ix, outside_group_ix):
         return f"(target=={target}) & " + \
-               f"(predictions[:, {target}] >= 0) & " + \
-               f"(predictions[:, {within_group_ix}] >= -2).all(dim=1) & " + \
-               f"(predictions[:, {outside_group_ix}] < -5).all(dim=1)"
+               f"(predictions[:, {target}].unsqueeze(1) > predictions).all(dim=1) & " + \
+               "&".join([f"(predictions[:, {within_group_ix}] > preds[:, {i}].unsqueeze(1)).all(dim=1)" for i in outside_group_ix])
 
     statement = []
     for a in animate_ix:
