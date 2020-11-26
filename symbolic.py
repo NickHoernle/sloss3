@@ -37,17 +37,19 @@ class LogicNet(nn.Module):
 
 
 def create_cifar10_logic(animate_ix, inaminate_ix):
-    logic_statement = "((target=={target}) & " \
-                      "(predictions[:, {target}] > 5) & " \
-                      "(predictions[:, {within_group_ix}] > 0).all(dim=1) & " \
-                      "(predictions[:, {outside_group_ix}] < -5).all(dim=1))"
+
+    def logic_statement(target, within_group_ix, outside_group_ix):
+        return f"(tgts=={target}) & " + \
+               f"(preds[:, {target}].unsqueeze(1) >= preds).all(dim=1) & " + \
+               '&'.join([f'(preds[:, {within_group_ix}] >= preds[:, {i}].unsqueeze(1)).all(dim=1)' for i in
+                         outside_group_ix])
 
     statement = []
     for a in animate_ix:
-        statement.append(logic_statement.format(target=a, within_group_ix=animate_ix, outside_group_ix=inaminate_ix))
+        statement.append(logic_statement(target=a, within_group_ix=animate_ix, outside_group_ix=inaminate_ix))
 
     for ia in inaminate_ix:
-        statement.append(logic_statement.format(target=ia, within_group_ix=inaminate_ix, outside_group_ix=animate_ix))
+        statement.append(logic_statement(target=ia, within_group_ix=inaminate_ix, outside_group_ix=animate_ix))
 
     statement = " | ".join(statement)
     return lambda target, predictions: eval(statement)

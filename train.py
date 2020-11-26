@@ -157,21 +157,21 @@ def main():
         logic_net = LogicNet(num_classes=len(train_loader.dataset.classes))
         logic_net.to(device)
 
-        logic_optimizer = torch.optim.Adam(logic_net.parameters(), 1e-2)
+        logic_optimizer = torch.optim.Adam(logic_net.parameters(), 1e-3)
         logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs)
 
-        decoder_optimizer = torch.optim.Adam(model.global_paramters, 1e-2)
+        decoder_optimizer = torch.optim.Adam(model.global_paramters, 1e-3)
         decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs)
 
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
 
         # override the oprimizer from above
-        optimizer = torch.optim.SGD(model.local_parameters,
-                                    args.lr,
-                                    momentum=args.momentum,
-                                    nesterov=args.nesterov,
-                                    weight_decay=args.weight_decay)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
+        # optimizer = torch.optim.SGD(model.local_parameters,
+        #                             args.lr,
+        #                             momentum=args.momentum,
+        #                             nesterov=args.nesterov,
+        #                             weight_decay=args.weight_decay)
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
@@ -267,15 +267,14 @@ def train(train_loader, model, logic_net,
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
             loss = 0
-            weight = np.max([1., epoch / 25])
-            loss += weight*recon_loss
-            kld = -0.5 * torch.sum(1 + lv - np.log(9.) - (mu.pow(2) + lv.exp()) / 9., dim=-1).mean()
+            loss += recon_loss
+            kld = -0.5 * (1 + lv - np.log(9.) - (mu.pow(2) + lv.exp()) / 9.).mean()
             loss += kld
 
             preds, true = calc_logic(output, target)
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
             # loss += logic_loss_.mean()
-            # loss += recon_loss
+            weight = np.max([1., epoch / 25])
             loss += weight*logic_loss_[~true].sum() / len(true)
 
             logic_losses.update(logic_loss.data.item(), 1000)
