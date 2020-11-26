@@ -182,7 +182,7 @@ def main():
               scheduler, logic_scheduler, decoder_scheduler,
               epoch, args, calc_logic, device=device)
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch, args, device=device)
+        prec1 = validate(val_loader, model, criterion, epoch, args, calc_logic, device=device)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -312,11 +312,12 @@ def train(train_loader, model, logic_net,
         log_value('train_logic_acc', top1.avg, epoch)
 
 
-def validate(val_loader, model, criterion, epoch, params, device="cuda"):
+def validate(val_loader, model, criterion, epoch, params, calc_logic=None, device="cuda"):
     """Perform validation on the validation set"""
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
+    logic_accuracy = AverageMeter()
 
     # switch to evaluate mode
     model.eval()
@@ -337,6 +338,8 @@ def validate(val_loader, model, criterion, epoch, params, device="cuda"):
             with torch.no_grad():
                 output, (mu, lv), theta = model(input)
             loss = criterion(output, target)
+            preds, true = calc_logic(output, target)
+            logic_accuracy.update(true.float().mean(), input.size(0))
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
@@ -351,8 +354,9 @@ def validate(val_loader, model, criterion, epoch, params, device="cuda"):
             print('Test: [{0}/{1}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Logic Acc {logic_acc.val:.4f} ({logic_acc.avg:.4f})\t'
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                      i, len(val_loader), batch_time=batch_time, loss=losses,
+                      i, len(val_loader), batch_time=batch_time, loss=losses, logic_acc=logic_accuracy,
                       top1=top1))
 
     print(' * Prec@1 {top1.avg:.3f}'.format(top1=top1))
