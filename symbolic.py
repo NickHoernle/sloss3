@@ -38,9 +38,9 @@ class LogicNet(nn.Module):
 
 def create_cifar10_logic(animate_ix, inaminate_ix):
     logic_statement = "((target=={target}) & " \
-                      "(predictions[:, {target}] > 20) & " \
+                      "(predictions[:, {target}] > 5) & " \
                       "(predictions[:, {within_group_ix}] > 0).all(dim=1) & " \
-                      "(predictions[:, {outside_group_ix}] < -20).all(dim=1))"
+                      "(predictions[:, {outside_group_ix}] < -5).all(dim=1))"
 
     statement = []
     for a in animate_ix:
@@ -55,7 +55,7 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
 
 def get_cifar10_experiment_params(dataset):
     examples = torch.ones(10, 10)
-    examples *= -25
+    examples *= -6
 
     classes = dataset.classes
 
@@ -71,7 +71,7 @@ def get_cifar10_experiment_params(dataset):
     for ia in inanimate_ix:
         examples[ia, inanimate_ix] = 1
 
-    examples[torch.arange(10), torch.arange(10)] = 25
+    examples[torch.arange(10), torch.arange(10)] = 6
 
     return examples, create_cifar10_logic(animate_ix, inanimate_ix)
 
