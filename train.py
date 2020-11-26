@@ -166,22 +166,20 @@ def main():
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
 
         # override the oprimizer from above
-        # optimizer = torch.optim.SGD(model.parameters(),
-        #                             args.lr,
-        #                             momentum=args.momentum,
-        #                             nesterov=args.nesterov,
-        #                             weight_decay=args.weight_decay)
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
+        optimizer = torch.optim.SGD(model.local_parameters,
+                                    args.lr,
+                                    momentum=args.momentum,
+                                    nesterov=args.nesterov,
+                                    weight_decay=args.weight_decay)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, scheduler, epoch, args, calc_logic, device=device)
-        
-        if args.sloss:
-            # train for logic outcome
-            train_logic(model, logic_net, calc_logic, examples,
-                        logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, epoch, device=device)
-
+        train(train_loader, model, logic_net,
+              criterion, examples,
+              optimizer, logic_optimizer, decoder_optimizer,
+              scheduler, logic_scheduler, decoder_scheduler,
+              epoch, args, calc_logic, device=device)
         # evaluate on validation set
         prec1 = validate(val_loader, model, criterion, epoch, args, device=device)
 
@@ -196,11 +194,57 @@ def main():
     print('Best accuracy: ', best_prec1)
 
 
-def train(train_loader, model, criterion, optimizer, scheduler, epoch, params, calc_logic=None, device="cuda"):
+def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, device):
+    # train the logic net
+    logic_net.train()
+    model.eval()
+
+    logic_optimizer.zero_grad()
+
+    samps, tgts, thet = model.sample(1000)
+    preds, true = calc_logic(samps, tgts)
+    logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
+    preds, true = calc_logic(examples, torch.arange(10).to(device))
+    logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
+
+    logic_loss.backward()
+    torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 1.)
+    logic_optimizer.step()
+
+    logic_net.eval()
+    model.train()
+    # train the network to obey the logic
+    decoder_optimizer.zero_grad()
+
+    samps, tgts, thet = model.sample(1000)
+    preds, true = calc_logic(samps, tgts)
+    logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
+    # loss = logic_loss_.mean()
+    loss = 0
+    loss += logic_loss_[~true].sum() / len(true)
+    loss += F.cross_entropy(samps, tgts)
+
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
+    decoder_optimizer.step()
+
+    logic_scheduler.step()
+    decoder_scheduler.step()
+
+    return loss, logic_loss
+
+
+def train(train_loader, model, logic_net,
+          criterion, examples,
+          optimizer, logic_optimizer, decoder_optimizer,
+          scheduler, logic_scheduler, decoder_scheduler,
+          epoch, params, calc_logic=None, device="cuda"):
     """Train for one epoch on the training set"""
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
+    net_logic_losses = AverageMeter()
+    logic_losses = AverageMeter()
 
     # switch to train mode
     model.train()
@@ -217,6 +261,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, params, c
             output = model(input)
             loss = criterion(output, target)
         else:
+            net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
+                             logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, device=device)
+
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
             loss = 0
@@ -230,6 +277,9 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, params, c
             # loss += logic_loss_.mean()
             # loss += recon_loss
             loss += weight*logic_loss_[~true].sum() / len(true)
+
+            logic_losses.update(logic_loss.data.item(), 1000)
+            net_logic_losses.update(net_logic_loss.data.item(), 1000)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
@@ -250,13 +300,16 @@ def train(train_loader, model, criterion, optimizer, scheduler, epoch, params, c
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                  'Logic Loss {logic_loss.val:.4f} ({logic_loss.avg:.4f})\t'
+                  'Net Logic Loss {net_logic_loss.val:.4f} ({net_logic_loss.avg:.4f})\t'
                   'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                       epoch, i, len(train_loader), batch_time=batch_time,
-                      loss=losses, top1=top1))
+                      loss=losses, logic_loss=logic_losses, net_logic_loss=net_logic_losses, top1=top1))
     # log to TensorBoard
     if args.tensorboard:
         log_value('train_loss', losses.avg, epoch)
         log_value('train_acc', top1.avg, epoch)
+        log_value('train_logic_acc', top1.avg, epoch)
 
 
 def validate(val_loader, model, criterion, epoch, params, device="cuda"):
@@ -308,70 +361,6 @@ def validate(val_loader, model, criterion, epoch, params, device="cuda"):
         log_value('val_loss', losses.avg, epoch)
         log_value('val_acc', top1.avg, epoch)
     return top1.avg
-
-
-def train_logic(model, logic_net, calc_logic, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, epoch, device):
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    logic_losses = AverageMeter()
-    top1 = AverageMeter()
-
-    end = time.time()
-    for i in range(1000):
-        # train the logic net
-        logic_net.train()
-        model.eval()
-
-        logic_optimizer.zero_grad()
-
-        samps, tgts, thet = model.sample(1000)
-        preds, true = calc_logic(samps, tgts)
-        logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
-        preds, true = calc_logic(examples, torch.arange(10).to(device))
-        logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
-
-        logic_loss.backward()
-        logic_optimizer.step()
-
-        logic_net.eval()
-        model.train()
-        # train the network to obey the logic
-        decoder_optimizer.zero_grad()
-
-        samps, tgts, thet = model.sample(1000)
-        preds, true = calc_logic(samps, tgts)
-        logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
-        # loss = logic_loss_.mean()
-        loss = 0
-        loss += logic_loss_[~true].sum() / len(true)
-        loss += F.cross_entropy(samps, tgts)
-
-        loss.backward()
-        decoder_optimizer.step()
-
-        logic_scheduler.step()
-        decoder_scheduler.step()
-
-        logic_losses.update(logic_loss.data.item(), 1000)
-        losses.update(loss.data.item(), 1000)
-        prec1 = accuracy(samps.data, tgts, topk=(1,))[0]
-        top1.update(prec1.item(), 1000)
-
-        batch_time.update(time.time() - end)
-        end = time.time()
-
-    print('Logic Train: [{0}]\t'
-          'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-          'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-          'Logic Loss {logic_loss.val:.4f} ({logic_loss.avg:.4f})\t'
-          'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-        epoch, batch_time=batch_time,
-        loss=losses, logic_loss=logic_losses, top1=top1))
-
-    # log to TensorBoard
-    if args.tensorboard:
-        log_value('train_logic_loss', losses.avg, epoch)
-        log_value('train_logic_acc', top1.avg, epoch)
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
