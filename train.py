@@ -42,6 +42,7 @@ parser.add_argument('-b', '--batch-size', default=128, type=int,
 parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                     help='initial learning rate')
 parser.add_argument('--momentum', default=0.9, type=float, help='momentum')
+parser.add_argument('--sloss_weight', default=0.1, type=float, help='Weight for the sloss logic term')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--weight-decay', '--wd', default=5e-4, type=float,
                     help='weight decay (default: 5e-4)')
@@ -275,7 +276,7 @@ def train(train_loader, model, logic_net,
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
             # loss += logic_loss_.mean()
             weight = np.max([1., epoch / 25])
-            loss += weight*logic_loss_[~true].sum() / len(true)
+            loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
 
             logic_losses.update(logic_loss.data.item(), 1000)
             net_logic_losses.update(net_logic_loss.data.item(), 1000)
