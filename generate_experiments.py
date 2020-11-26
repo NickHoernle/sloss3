@@ -19,11 +19,11 @@ repeats = 1
 
 experiment = "cifar10"
 dataset = [experiment]
-learning_rate = [.1]
+learning_rate = [.1, .01, .001]
 sloss = [True, False]
-sloss_weight=[.1,.01]
+sloss_weight=[.1, .01]
 
-settings = [(lr, sloss_, dataset_, rep)
+settings = [(lr, sloss_, sw_, dataset_, rep)
             for lr in learning_rate
             for sloss_ in sloss
             for sw_ in sloss_weight
@@ -45,7 +45,7 @@ for (lr, sloss_, sw_, dataset_, rep) in settings:
     expt_call = (
         f"{base_call} " +
         f"--lr {lr} " +
-        f"--sloss_weight {sw_} " + 
+        f"--sloss_weight {sw_} " +
         (f"--no-sloss " if not sloss_ else "")
     )
     print(expt_call, file=output_file)
