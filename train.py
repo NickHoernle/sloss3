@@ -182,7 +182,7 @@ def main():
               scheduler, logic_scheduler, decoder_scheduler,
               epoch, args, calc_logic, device=device)
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch, args, calc_logic, device=device)
+        prec1 = validate(val_loader, model, criterion, epoch, args, logic_fn, device=device)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -312,7 +312,7 @@ def train(train_loader, model, logic_net,
         log_value('train_logic_acc', top1.avg, epoch)
 
 
-def validate(val_loader, model, criterion, epoch, params, calc_logic=None, device="cuda"):
+def validate(val_loader, model, criterion, epoch, params, calc_logic, device="cuda"):
     """Perform validation on the validation set"""
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -338,8 +338,9 @@ def validate(val_loader, model, criterion, epoch, params, calc_logic=None, devic
             with torch.no_grad():
                 output, (mu, lv), theta = model(input)
             loss = criterion(output, target)
-            preds, true = calc_logic(output, target)
-            logic_accuracy.update(true.float().mean(), input.size(0))
+
+        true_logic = calc_logic(target, output)
+        logic_accuracy.update(true_logic.float().mean(), input.size(0))
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
