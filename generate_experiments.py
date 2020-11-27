@@ -44,7 +44,7 @@ for (lr, sloss_, sw_, dataset_, rep) in settings:
     # and recorded in the output data by the python script
     if not sloss_ and sw_ != 1:
         continue
-        
+
     expt_call = (
         f"{base_call} " +
         f"--lr {lr} " +

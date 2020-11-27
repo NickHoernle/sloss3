@@ -158,21 +158,31 @@ def main():
         logic_net = LogicNet(num_classes=len(train_loader.dataset.classes))
         logic_net.to(device)
 
-        logic_optimizer = torch.optim.Adam(logic_net.parameters(), args.lr*.1)
+        # logic_optimizer = torch.optim.Adam(logic_net.parameters(), args.lr*.1)
+        logic_optimizer = torch.optim.SGD(logic_net.parameters(),
+                                    args.lr,
+                                    momentum=args.momentum,
+                                    nesterov=args.nesterov,
+                                    weight_decay=args.weight_decay)
         logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs)
 
-        decoder_optimizer = torch.optim.Adam(model.global_paramters, args.lr*.1)
+        # decoder_optimizer = torch.optim.Adam(model.global_paramters, args.lr*.1)
+        decoder_optimizer = torch.optim.SGD(model.global_paramters,
+                                          args.lr,
+                                          momentum=args.momentum,
+                                          nesterov=args.nesterov,
+                                          weight_decay=args.weight_decay)
         decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs)
 
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
 
         # override the oprimizer from above
-        # optimizer = torch.optim.SGD(model.local_parameters,
-        #                             args.lr,
-        #                             momentum=args.momentum,
-        #                             nesterov=args.nesterov,
-        #                             weight_decay=args.weight_decay)
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
+        optimizer = torch.optim.SGD(model.local_parameters,
+                                    args.lr,
+                                    momentum=args.momentum,
+                                    nesterov=args.nesterov,
+                                    weight_decay=args.weight_decay)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
