@@ -147,10 +147,10 @@ def main():
 
     # cosine learning rate
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
-    calc_logic = None
+    calc_logic, logic_net, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler = None,None,None,None,None,None,None
+    examples, logic_fn = get_cifar10_experiment_params(train_loader.dataset)
 
     if args.sloss:
-        examples, logic_fn = get_cifar10_experiment_params(train_loader.dataset)
         assert logic_fn(torch.arange(10), examples).all()
 
         examples = examples.to(device)
@@ -167,12 +167,12 @@ def main():
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
 
         # override the oprimizer from above
-        optimizer = torch.optim.SGD(model.local_parameters,
-                                    args.lr,
-                                    momentum=args.momentum,
-                                    nesterov=args.nesterov,
-                                    weight_decay=args.weight_decay)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
+        # optimizer = torch.optim.SGD(model.local_parameters,
+        #                             args.lr,
+        #                             momentum=args.momentum,
+        #                             nesterov=args.nesterov,
+        #                             weight_decay=args.weight_decay)
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch

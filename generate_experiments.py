@@ -19,9 +19,9 @@ repeats = 1
 
 experiment = "cifar10"
 dataset = [experiment]
-learning_rate = [.1, .01, .001]
-sloss = [True]
-sloss_weight=[.1, .01]
+learning_rate = [.1, .01]
+sloss = [True, False]
+sloss_weight=[1., .1, .05, 0.01]
 
 settings = [(lr, sloss_, sw_, dataset_, rep)
             for lr in learning_rate
@@ -42,6 +42,9 @@ output_file = open("experiment.txt", "w")
 for (lr, sloss_, sw_, dataset_, rep) in settings:
     # Note that we don't set a seed for rep - a seed is selected at random
     # and recorded in the output data by the python script
+    if not sloss_ and sw_ != 1:
+        continue
+        
     expt_call = (
         f"{base_call} " +
         f"--lr {lr} " +
