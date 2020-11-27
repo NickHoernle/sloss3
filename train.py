@@ -205,7 +205,7 @@ def main():
     print('Best accuracy: ', best_prec1)
 
 
-def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, device):
+def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, params, device):
     # train the logic net
     logic_net.train()
     model.eval()
@@ -232,7 +232,7 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
     logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
     # loss = logic_loss_.mean()
     loss = 0
-    loss += logic_loss_[~true].sum() / len(true)
+    loss += params.sloss_weight*logic_loss_[~true].sum() / len(true)
     loss += F.cross_entropy(samps, tgts)
 
     loss.backward()
@@ -273,7 +273,8 @@ def train(train_loader, model, logic_net,
             loss = criterion(output, target)
         else:
             net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
-                             logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, device=device)
+                            logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler,
+                            params, device=device)
 
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
