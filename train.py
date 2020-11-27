@@ -266,8 +266,8 @@ def train(train_loader, model, logic_net,
     for i, (input, target) in enumerate(train_loader):
         # target = target.cuda(non_blocking=True)
         # input = input.cuda(non_blocking=True)
-        target = target.to(device, non_blocking=True)
-        input = input.to(device, non_blocking=True)
+        target = target.to(device)
+        input = input.to(device)
 
         # compute output
         if not params.sloss:
