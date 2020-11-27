@@ -57,9 +57,9 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
 def create_cifar10_group_precision(animate_ix, inaminate_ix):
 
     def group_logic_statement(target, within_group_ix):
-        return f"target=={target} & (" + \
+        return f"((target=={target}) & (" + \
                "|".join([f"(predictions.argmax(dim=1) == {i})" for i in within_group_ix]) + \
-               ")"
+               "))"
 
     statement = []
     for a in animate_ix:
