@@ -148,7 +148,7 @@ def main():
     # cosine learning rate
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
     calc_logic, logic_net, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler = None,None,None,None,None,None,None
-    examples, logic_fn = get_cifar10_experiment_params(train_loader.dataset)
+    examples, logic_fn, group_precision = get_cifar10_experiment_params(train_loader.dataset)
 
     if args.sloss:
         assert logic_fn(torch.arange(10), examples).all()
@@ -177,12 +177,14 @@ def main():
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
 
         # override the oprimizer from above
-        optimizer = torch.optim.SGD(model.local_parameters,
+        optimizer = torch.optim.SGD(model.local_parameters, # TODO: still might be better for parameters()
                                     args.lr,
                                     momentum=args.momentum,
                                     nesterov=args.nesterov,
                                     weight_decay=args.weight_decay)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
+
+    name = "_".join([str(getattr(args, source)) for source in ['lr', 'sloss', 'sloss_weight', 'dataset']])
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
@@ -192,7 +194,7 @@ def main():
               scheduler, logic_scheduler, decoder_scheduler,
               epoch, args, calc_logic, device=device)
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch, args, logic_fn, device=device)
+        prec1 = validate(val_loader, model, criterion, epoch, args, group_precision, device=device)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -201,7 +203,7 @@ def main():
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
-        }, is_best)
+        }, is_best, filename=f"{name}.checkpoint.pth.tar")
     print('Best accuracy: ', best_prec1)
 
 

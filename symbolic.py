@@ -54,6 +54,24 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
     return lambda target, predictions: eval(statement)
 
 
+def create_cifar10_group_precision(animate_ix, inaminate_ix):
+
+    def group_logic_statement(target, within_group_ix):
+        return f"target=={target} & (" + \
+               "|".join([f"(predictions.argmax(dim=1) == {i})" for i in within_group_ix]) + \
+               ")"
+
+    statement = []
+    for a in animate_ix:
+        statement.append(group_logic_statement(target=a, within_group_ix=animate_ix))
+
+    for ia in inaminate_ix:
+        statement.append(group_logic_statement(target=ia, within_group_ix=inaminate_ix))
+
+    statement = " | ".join(statement)
+    return lambda target, predictions: eval(statement)
+
+
 def get_cifar10_experiment_params(dataset):
 
     classes = dataset.classes
@@ -75,7 +93,7 @@ def get_cifar10_experiment_params(dataset):
 
     examples[torch.arange(10), torch.arange(10)] = 1
 
-    return examples, create_cifar10_logic(animate_ix, inanimate_ix)
+    return examples, create_cifar10_logic(animate_ix, inanimate_ix), create_cifar10_group_precision(animate_ix, inanimate_ix)
 
 
 def calc_logic_loss(predictions, targets, logic_net, logic_func, device):
