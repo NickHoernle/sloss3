@@ -42,7 +42,7 @@ output_file = open("experiment.txt", "w")
 for (lr, sloss_, sw_, dataset_, rep) in settings:
     # Note that we don't set a seed for rep - a seed is selected at random
     # and recorded in the output data by the python script
-    if not sloss_ and sw_ != 1:
+    if not sloss_ and sw_ != .1:
         continue
 
     expt_call = (
