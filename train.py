@@ -146,7 +146,7 @@ def main():
                                 weight_decay=args.weight_decay)
 
     # cosine learning rate
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs, eta_min=1e-6)
     calc_logic, logic_net, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler = None,None,None,None,None,None,None
     examples, logic_fn, group_precision = get_cifar10_experiment_params(train_loader.dataset)
 
@@ -164,7 +164,7 @@ def main():
                                     momentum=args.momentum,
                                     nesterov=args.nesterov,
                                     weight_decay=args.weight_decay)
-        logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs)
+        logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs, eta_min=1e-6)
 
         # decoder_optimizer = torch.optim.Adam(model.global_paramters, args.lr*.1)
         decoder_optimizer = torch.optim.SGD(model.global_paramters,
@@ -172,7 +172,7 @@ def main():
                                           momentum=args.momentum,
                                           nesterov=args.nesterov,
                                           weight_decay=args.weight_decay)
-        decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs)
+        decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs, eta_min=1e-6)
 
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
 
@@ -280,6 +280,8 @@ def train(train_loader, model, logic_net,
 
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
+            recon_loss += criterion(theta, target)
+
             loss = 0
             loss += recon_loss
             kld = -0.5 * (1 + lv - np.log(9.) - (mu.pow(2) + lv.exp()) / 9.).mean()
@@ -287,8 +289,8 @@ def train(train_loader, model, logic_net,
 
             preds, true = calc_logic(output, target)
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
-            # loss += logic_loss_.mean()
             weight = np.max([1., epoch / 25])
+            # loss += logic_loss_.mean()
             loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
 
             logic_losses.update(logic_loss.data.item(), 1000)
