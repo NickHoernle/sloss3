@@ -38,10 +38,10 @@ class LogicNet(nn.Module):
 
 def create_cifar10_logic(animate_ix, inaminate_ix):
 
-    def logic_statement(target, within_group_ix, outside_group_ix):
+    def logic_statement(target, within_group_ix, outside_group_ix, epsilon=1):
         # f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
         return f"(target=={target}) & " + \
-               "&".join([f"(predictions[:, {within_group_ix}] > predictions[:, {i}].unsqueeze(1)).all(dim=1)" for i in outside_group_ix])
+               "&".join([f"(predictions[:, {within_group_ix}] > (predictions[:, {i}].unsqueeze(1) + {epsilon})).all(dim=1)" for i in outside_group_ix])
 
     statement = []
     for a in animate_ix:
@@ -56,17 +56,19 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
 
 def create_cifar10_group_precision(animate_ix, inaminate_ix):
 
-    def group_logic_statement(target, within_group_ix):
-        return f"((target=={target}) & (" + \
-               "|".join([f"(predictions.argmax(dim=1) == {i})" for i in within_group_ix]) + \
-               "))"
+    def logic_statement(target, within_group_ix, outside_group_ix, epsilon=1):
+        # f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
+        return f"(target=={target}) & " + \
+               "&".join(
+                   [f"(predictions[:, {within_group_ix}] > (predictions[:, {i}].unsqueeze(1) + {epsilon})).all(dim=1)"
+                    for i in outside_group_ix])
 
     statement = []
     for a in animate_ix:
-        statement.append(group_logic_statement(target=a, within_group_ix=animate_ix))
+        statement.append(logic_statement(target=a, within_group_ix=animate_ix, outside_group_ix=inaminate_ix))
 
     for ia in inaminate_ix:
-        statement.append(group_logic_statement(target=ia, within_group_ix=inaminate_ix))
+        statement.append(logic_statement(target=ia, within_group_ix=inaminate_ix, outside_group_ix=animate_ix))
 
     statement = " | ".join(statement)
     return lambda target, predictions: eval(statement)
