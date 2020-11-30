@@ -280,7 +280,7 @@ def train(train_loader, model, logic_net,
 
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
-            recon_loss += criterion(theta, target)
+            # recon_loss += criterion(theta, target)
 
             loss = 0
             loss += recon_loss
@@ -351,7 +351,7 @@ def validate(val_loader, model, criterion, epoch, params, calc_logic, device="cu
             loss = criterion(output, target)
         else:
             with torch.no_grad():
-                output, (mu, lv), theta = model(input)
+                output = model.test(input)
             loss = criterion(output, target)
 
         true_logic = calc_logic(target, output)
