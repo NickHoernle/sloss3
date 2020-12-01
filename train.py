@@ -383,9 +383,10 @@ def validate(val_loader, model, criterion, epoch, params, calc_logic, device="cu
         batch_time.update(time.time() - end)
         end = time.time()
 
-        targets += list(target.detach().numpy())
-        predictions += list(output.argmax(dim=1).detach().numpy())
-        outputzz.append(output.data.detach().numpy())
+        if params.resume:
+            targets += list(target.detach().numpy())
+            predictions += list(output.argmax(dim=1).detach().numpy())
+            outputzz.append(output.data.detach().numpy())
 
         if i % args.print_freq == 0:
             print('Test: [{0}/{1}]\t'
