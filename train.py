@@ -414,10 +414,10 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     directory = args.checkpoint_dir+"/%s/"%(args.name)
     if not os.path.exists(directory):
         os.makedirs(directory)
-    filename = directory + filename
-    torch.save(state, filename)
+    fname = directory + filename
+    torch.save(state, fname)
     if is_best:
-        shutil.copyfile(filename, args.checkpoint_dir+'/%s/'%(args.name) + "best_" + filename)
+        shutil.copyfile(fname, args.checkpoint_dir+'/%s/'%(args.name) + "best_" + filename)
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
