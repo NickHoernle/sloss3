@@ -128,7 +128,7 @@ def main():
     if args.resume:
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume)
+            checkpoint = torch.load(args.resume, map_location=torch.device('cpu'))
             args.start_epoch = checkpoint['epoch']
             best_prec1 = checkpoint['best_prec1']
             model.load_state_dict(checkpoint['state_dict'])
@@ -186,6 +186,18 @@ def main():
 
     name = "_".join([str(getattr(args, source)) for source in ['lr', 'sloss', 'sloss_weight', 'dataset']])
 
+    # if args.resume:
+    #     targets, preds, outs = validate(val_loader, model, criterion, 1, args, group_precision, device=device)
+    #     from sklearn.metrics import confusion_matrix
+    #     import pickle
+    #     confusion_matrix(targets, preds)
+    #     dict_ = {"targets": targets, "pred": np.concatenate(outs, axis=0)}
+    #     f = open('../semantic_loss/notebooks/result.pickle', 'wb')
+    #     pickle.dump(dict_, f)
+    #     f.close()
+    #     import pdb
+    #     pdb.set_trace()
+
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
         train(train_loader, model, logic_net,
@@ -203,7 +215,7 @@ def main():
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
-        }, is_best, filename=f"{name}.checkpoint.pth.tar")
+        }, is_best, filename=f"{name}.checkpoint.pt")
     print('Best accuracy: ', best_prec1)
 
 
@@ -338,6 +350,11 @@ def validate(val_loader, model, criterion, epoch, params, calc_logic, device="cu
     model.eval()
 
     end = time.time()
+
+    targets = []
+    predictions = []
+    outputzz = []
+
     for i, (input, target) in enumerate(val_loader):
         # target = target.cuda(non_blocking=True)
         # input = input.cuda(non_blocking=True)
@@ -366,6 +383,10 @@ def validate(val_loader, model, criterion, epoch, params, calc_logic, device="cu
         batch_time.update(time.time() - end)
         end = time.time()
 
+        targets += list(target.detach().numpy())
+        predictions += list(output.argmax(dim=1).detach().numpy())
+        outputzz.append(output.data.detach().numpy())
+
         if i % args.print_freq == 0:
             print('Test: [{0}/{1}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
@@ -380,6 +401,10 @@ def validate(val_loader, model, criterion, epoch, params, calc_logic, device="cu
     if args.tensorboard:
         log_value('val_loss', losses.avg, epoch)
         log_value('val_acc', top1.avg, epoch)
+
+    if params.resume:
+        return targets, predictions, outputzz
+
     return top1.avg
 
 
@@ -391,7 +416,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     filename = directory + filename
     torch.save(state, filename)
     if is_best:
-        shutil.copyfile(filename, args.checkpoint_dir+'/%s/'%(args.name) + 'model_best.pth.tar')
+        shutil.copyfile(filename, args.checkpoint_dir+'/%s/'%(args.name) + "best_" + filename)
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
