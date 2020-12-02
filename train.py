@@ -220,8 +220,9 @@ def main():
             'best_prec1': best_prec1,
         }, is_best, filename=f"{name}.checkpoint.pt")
 
-        logic_scheduler.step()
-        decoder_scheduler.step()
+        if not args.sloss:
+            logic_scheduler.step()
+            decoder_scheduler.step()
         scheduler.step()
 
     print('Best accuracy: ', best_prec1)
