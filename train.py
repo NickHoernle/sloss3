@@ -220,7 +220,7 @@ def main():
             'best_prec1': best_prec1,
         }, is_best, filename=f"{name}.checkpoint.pt")
 
-        if not args.sloss:
+        if args.sloss:
             logic_scheduler.step()
             decoder_scheduler.step()
         scheduler.step()
@@ -255,8 +255,8 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
     logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
 
     loss = 0
-    loss = params.sloss_weight*logic_loss_.mean()
-    # loss += params.sloss_weight*logic_loss_[~true].sum() / len(true)
+    # loss = params.sloss_weight*logic_loss_.mean()
+    loss += params.sloss_weight*logic_loss_[~true].sum() / len(true)
     loss += F.cross_entropy(samps, tgts)
 
     loss.backward()
