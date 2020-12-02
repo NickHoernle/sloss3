@@ -244,9 +244,10 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
     samps, tgts, thet = model.sample(1000)
     preds, true = calc_logic(samps, tgts)
     logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
-    # loss = logic_loss_.mean()
+
     loss = 0
-    loss += params.sloss_weight*logic_loss_[~true].sum() / len(true)
+    loss = params.sloss_weight*logic_loss_.mean()
+    # loss += params.sloss_weight*logic_loss_[~true].sum() / len(true)
     loss += F.cross_entropy(samps, tgts)
 
     loss.backward()
