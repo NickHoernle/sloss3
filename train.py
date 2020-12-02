@@ -146,7 +146,8 @@ def main():
                                 weight_decay=args.weight_decay)
 
     # cosine learning rate
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs, eta_min=1e-6)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs, eta_min=1e-6)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=.2)
     calc_logic, logic_net, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler = None,None,None,None,None,None,None
     examples, logic_fn, group_precision = get_cifar10_experiment_params(train_loader.dataset)
 
@@ -164,7 +165,8 @@ def main():
                                     momentum=args.momentum,
                                     nesterov=args.nesterov,
                                     weight_decay=args.weight_decay)
-        logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs, eta_min=1e-6)
+        # logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs, eta_min=1e-8)
+        logic_scheduler = torch.optim.lr_scheduler.StepLR(logic_optimizer, step_size=25, gamma=.2)
 
         # decoder_optimizer = torch.optim.Adam(model.global_paramters, args.lr*.1)
         decoder_optimizer = torch.optim.SGD(model.global_paramters,
@@ -172,7 +174,8 @@ def main():
                                           momentum=args.momentum,
                                           nesterov=args.nesterov,
                                           weight_decay=args.weight_decay)
-        decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs, eta_min=1e-6)
+        # decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs, eta_min=1e-8)
+        decoder_scheduler = torch.optim.lr_scheduler.StepLR(decoder_optimizer, step_size=25, gamma=.2)
 
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
 
@@ -186,17 +189,17 @@ def main():
 
     name = "_".join([str(getattr(args, source)) for source in ['lr', 'sloss', 'sloss_weight', 'dataset']])
 
-    # if args.resume:
-    #     targets, preds, outs = validate(val_loader, model, criterion, 1, args, group_precision, device=device)
-    #     from sklearn.metrics import confusion_matrix
-    #     import pickle
-    #     confusion_matrix(targets, preds)
-    #     dict_ = {"targets": targets, "pred": np.concatenate(outs, axis=0)}
-    #     f = open('../semantic_loss/notebooks/result.pickle', 'wb')
-    #     pickle.dump(dict_, f)
-    #     f.close()
-    #     import pdb
-    #     pdb.set_trace()
+    if args.resume:
+        targets, preds, outs = validate(val_loader, model, criterion, 1, args, group_precision, device=device)
+        from sklearn.metrics import confusion_matrix
+        import pickle
+        confusion_matrix(targets, preds)
+        dict_ = {"targets": targets, "pred": np.concatenate(outs, axis=0)}
+        f = open('../semantic_loss/notebooks/results.pickle', 'wb')
+        pickle.dump(dict_, f)
+        f.close()
+        import pdb
+        pdb.set_trace()
 
     for epoch in range(args.start_epoch, args.epochs):
         # train for one epoch
@@ -216,6 +219,11 @@ def main():
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
         }, is_best, filename=f"{name}.checkpoint.pt")
+
+        logic_scheduler.step()
+        decoder_scheduler.step()
+        scheduler.step()
+
     print('Best accuracy: ', best_prec1)
 
 
@@ -254,8 +262,8 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
     torch.nn.utils.clip_grad_norm_(model.parameters(), 1.)
     decoder_optimizer.step()
 
-    logic_scheduler.step()
-    decoder_scheduler.step()
+    # logic_scheduler.step()
+    # decoder_scheduler.step()
 
     return loss, logic_loss
 
@@ -318,7 +326,7 @@ def train(train_loader, model, logic_net,
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        scheduler.step()
+        # scheduler.step()
 
         # measure elapsed time
         batch_time.update(time.time() - end)
