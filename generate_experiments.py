@@ -14,6 +14,7 @@ base_call = (f"python train.py --dataset cifar100 "
              f"--dataset_path {DATA_HOME}/data "
              f"--layers 28 --widen-factor 2 "
              f"--epochs 200 "
+             f"--batch-size 500 "
              f"--checkpoint_dir {DATA_HOME}/logs/ ")
 
 repeats = 1
