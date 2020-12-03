@@ -183,7 +183,7 @@ def main():
         # decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs, eta_min=1e-8)
         decoder_scheduler = torch.optim.lr_scheduler.StepLR(decoder_optimizer, step_size=25, gamma=.2)
 
-        calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, num_classes=100, device=device)
+        calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, num_classes=model.num_classes, device=device)
 
         # override the oprimizer from above
         # optimizer = torch.optim.SGD(model.local_parameters, # TODO: still might be better for parameters()
