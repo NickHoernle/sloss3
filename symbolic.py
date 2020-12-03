@@ -38,7 +38,7 @@ class LogicNet(nn.Module):
 
 def create_cifar10_logic(animate_ix, inaminate_ix):
 
-    def logic_statement(target, within_group_ix, outside_group_ix, epsilon=2):
+    def logic_statement(target, within_group_ix, outside_group_ix, epsilon=10):
         # f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
         return f"(target=={target}) & " + \
                "&".join([f"(predictions[:, {within_group_ix}] > (predictions[:, {i}].unsqueeze(1) + {epsilon})).all(dim=1)" for i in outside_group_ix])
@@ -56,7 +56,7 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
 
 def create_cifar10_group_precision(animate_ix, inaminate_ix):
 
-    def logic_statement(target, within_group_ix, outside_group_ix, epsilon=2):
+    def logic_statement(target, within_group_ix, outside_group_ix, epsilon=10):
         # f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
         return f"(target=={target}) & " + \
                "&".join(

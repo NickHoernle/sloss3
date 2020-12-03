@@ -22,7 +22,7 @@ experiment = "cifar10"
 dataset = [experiment]
 learning_rate = [.1]
 sloss = [True, False]
-sloss_weight=[.1, .05, 0.01, .005, .001]
+sloss_weight=[.1, .05, 0.01, .005, .001, 0.0001]
 
 settings = [(lr, sloss_, sw_, dataset_, rep)
             for lr in learning_rate

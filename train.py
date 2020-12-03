@@ -194,6 +194,7 @@ def main():
         from sklearn.metrics import confusion_matrix
         import pickle
         confusion_matrix(targets, preds)
+        group_precision(torch.tensor(targets), torch.tensor(np.concatenate(outs, axis=0)))
         dict_ = {"targets": targets, "pred": np.concatenate(outs, axis=0)}
         f = open('../semantic_loss/notebooks/results.pickle', 'wb')
         pickle.dump(dict_, f)
