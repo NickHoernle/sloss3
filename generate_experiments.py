@@ -18,9 +18,9 @@ base_call = (f"python train.py --dataset cifar10 "
 
 repeats = 1
 
-experiment = "cifar10"
+experiment = "cifar100"
 dataset = [experiment]
-learning_rate = [.1]
+learning_rate = [.01]
 sloss = [True, False]
 sloss_weight=[.1, .05, 0.01, .005, .001, 0.0001]
 
