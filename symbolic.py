@@ -85,15 +85,15 @@ def get_cifar10_experiment_params(dataset):
     inanimate_ix = [i for i, l in enumerate(classes) if l in inanimate]
 
     examples = torch.ones(10, 10)
-    examples *= -6
+    examples *= -10
 
     for a in animate_ix:
-        examples[a, animate_ix] = -1
+        examples[a, animate_ix] = 1
 
     for ia in inanimate_ix:
-        examples[ia, inanimate_ix] = -1
+        examples[ia, inanimate_ix] = 1
 
-    examples[torch.arange(10), torch.arange(10)] = 1
+    examples[torch.arange(10), torch.arange(10)] = 10
 
     return examples, create_cifar10_logic(animate_ix, inanimate_ix), create_cifar10_group_precision(animate_ix, inanimate_ix)
 
