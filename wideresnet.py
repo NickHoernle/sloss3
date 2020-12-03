@@ -78,6 +78,7 @@ class WideResNet(nn.Module):
         self.semantic_loss = semantic_loss
         self.num_classes = num_classes
         self.device = device
+
         if semantic_loss:
             self.fc = nn.Sequential(nn.Linear(nChannels[3], num_classes))
             self.lv = nn.Sequential(nn.Linear(nChannels[3], num_classes))

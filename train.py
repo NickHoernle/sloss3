@@ -20,6 +20,7 @@ from wideresnet import WideResNet
 
 from symbolic import (
     get_cifar10_experiment_params,
+    get_cifar100_experiment_params,
     calc_logic_loss,
     LogicNet
 )
@@ -149,10 +150,15 @@ def main():
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader)*args.epochs, eta_min=1e-6)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=.2)
     calc_logic, logic_net, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler = None,None,None,None,None,None,None
-    examples, logic_fn, group_precision = get_cifar10_experiment_params(train_loader.dataset)
+
+    if args.dataset == "cifar100":
+        examples, logic_fn, group_precision = get_cifar100_experiment_params(train_loader.dataset)
+        assert logic_fn(torch.arange(100), examples).all()
+    else:
+        examples, logic_fn, group_precision = get_cifar10_experiment_params(train_loader.dataset)
+        assert logic_fn(torch.arange(10), examples).all()
 
     if args.sloss:
-        assert logic_fn(torch.arange(10), examples).all()
 
         examples = examples.to(device)
 
@@ -177,7 +183,7 @@ def main():
         # decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs, eta_min=1e-8)
         decoder_scheduler = torch.optim.lr_scheduler.StepLR(decoder_optimizer, step_size=25, gamma=.2)
 
-        calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, device)
+        calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, num_classes=100, device=device)
 
         # override the oprimizer from above
         # optimizer = torch.optim.SGD(model.local_parameters, # TODO: still might be better for parameters()
@@ -239,7 +245,7 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
     samps, tgts, thet = model.sample(1000)
     preds, true = calc_logic(samps, tgts)
     logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
-    preds, true = calc_logic(examples, torch.arange(10).to(device))
+    preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
     logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
 
     logic_loss.backward()
