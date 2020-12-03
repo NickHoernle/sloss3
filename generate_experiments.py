@@ -13,7 +13,7 @@ DATA_HOME = f'{SCRATCH_HOME}/vaelib'
 base_call = (f"python train.py --dataset cifar100 "
              f"--dataset_path {DATA_HOME}/data "
              f"--layers 28 --widen-factor 2 "
-             f"--epochs 250 "
+             f"--epochs 200 "
              f"--checkpoint_dir {DATA_HOME}/logs/ ")
 
 repeats = 1
