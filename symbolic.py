@@ -167,8 +167,8 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
 
     def logic_statement(target, within_group_ix, outside_group_ix, epsilon=5):
         return f"(target=={target}) & " + \
-               f"(predictions[:, {within_group_ix}] >= 1) & " \
-               f"(predictions[:, {outside_group_ix}] < -5)"
+               f"(predictions[:, {within_group_ix}] >= 1).all(dim=1) & " \
+               f"(predictions[:, {outside_group_ix}] < -5).all(dim=1)"
 
     statement = []
     for a in animate_ix:
