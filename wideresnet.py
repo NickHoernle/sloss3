@@ -111,7 +111,7 @@ class WideResNet(nn.Module):
 
     def sample(self, num_samples=1000):
         assert self.semantic_loss
-        z = 3 * torch.randn((num_samples, self.num_classes)).to(self.device)
+        z = torch.randn((num_samples, self.num_classes)).to(self.device)
         # theta = torch.log_softmax(z, dim=-1)
         theta = z
         targets = torch.argmax(theta, dim=1)

@@ -275,7 +275,7 @@ def get_cifar100_experiment_params(dataset):
 
     examples[torch.arange(100), torch.arange(100)] = 1
 
-    return examples, create_cifar100_logic(super_class_ix), create_cifar100_group_precision(super_class_ix)
+    return examples, create_cifar100_logic(super_class_ix), create_cifar100_logic(super_class_ix)
 
 
 def calc_logic_loss(predictions, targets, logic_net, logic_func, num_classes=10, device="cpu"):
