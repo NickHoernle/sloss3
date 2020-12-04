@@ -271,7 +271,7 @@ def get_cifar100_experiment_params(dataset):
 
     for group in super_class_ix:
         for ix in group:
-            examples[ix, group] = 1
+            examples[ix, group] = 10
 
     examples[torch.arange(100), torch.arange(100)] = 1
 
