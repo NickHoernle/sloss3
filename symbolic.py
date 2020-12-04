@@ -236,8 +236,8 @@ def create_cifar100_logic(group_ixs):
         for i, group in enumerate(group_ixs):
             for ix in group:
                 ixs = np.arange(len(group_ixs))
-                # outside_group = np.random.choice(ixs[ixs != i])
-                statement.append(build_logic(target=target, predictions=predictions, tgt=ix, within_group_ix=group, outside_group_ix=group_ix[ixs != i].reshape(-1)))
+                outside_group = np.random.choice(ixs[ixs != i])
+                statement.append(build_logic(target=target, predictions=predictions, tgt=ix, within_group_ix=group, outside_group_ix=group_ix[outside_group].reshape(-1)))
 
         return torch.stack(statement, dim=1).any(dim=1)
 
