@@ -221,7 +221,7 @@ def get_cifar10_experiment_params(dataset):
     return examples, create_cifar10_logic(animate_ix, inanimate_ix), create_cifar10_group_precision(animate_ix, inanimate_ix)
 
 
-def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=0.01):
+def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=1):
     return torch.stack([target == tgt] + [((predictions[:, outside_group_ix] + epsilon) < predictions[:, i].unsqueeze(1)).all(dim=1) for i in within_group_ix], dim=1).all(dim=1)
 
 
