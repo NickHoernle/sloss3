@@ -181,24 +181,24 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
     return lambda target, predictions: eval(statement)
 
 
-# def create_cifar10_group_precision(animate_ix, inaminate_ix):
-#
-#     def logic_statement(target, within_group_ix, outside_group_ix, epsilon=5):
-#         # f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
-#         return f"(target=={target}) & " + \
-#                "&".join(
-#                    [f"(predictions[:, {within_group_ix}] > (predictions[:, {i}].unsqueeze(1) + {epsilon})).all(dim=1)"
-#                     for i in outside_group_ix])
-#
-#     statement = []
-#     for a in animate_ix:
-#         statement.append(logic_statement(target=a, within_group_ix=animate_ix, outside_group_ix=inaminate_ix))
-#
-#     for ia in inaminate_ix:
-#         statement.append(logic_statement(target=ia, within_group_ix=inaminate_ix, outside_group_ix=animate_ix))
-#
-#     statement = " | ".join(statement)
-#     return lambda target, predictions: eval(statement)
+def create_cifar10_group_precision(animate_ix, inaminate_ix):
+
+    def logic_statement(target, within_group_ix, outside_group_ix, epsilon=5):
+        # f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
+        return f"(target=={target}) & " + \
+               "|".join([f"predictions.argmax(dim=1) == {i}" for i in within_group_ix])
+                   # [f"(predictions[:, {within_group_ix}] > (predictions[:, {i}].unsqueeze(1) + {epsilon})).all(dim=1)"
+                   #  for i in outside_group_ix])
+
+    statement = []
+    for a in animate_ix:
+        statement.append(logic_statement(target=a, within_group_ix=animate_ix, outside_group_ix=inaminate_ix))
+
+    for ia in inaminate_ix:
+        statement.append(logic_statement(target=ia, within_group_ix=inaminate_ix, outside_group_ix=animate_ix))
+
+    statement = " | ".join(statement)
+    return lambda target, predictions: eval(statement)
 
 
 def get_cifar10_experiment_params(dataset):
@@ -225,7 +225,7 @@ def get_cifar10_experiment_params(dataset):
     return examples, create_cifar10_logic(animate_ix, inanimate_ix), create_cifar10_logic(animate_ix, inanimate_ix)
 
 
-def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=1):
+def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=0.01):
     return torch.stack([target == tgt] + [((predictions[:, outside_group_ix] + epsilon) < predictions[:, i].unsqueeze(1)).all(dim=1) for i in within_group_ix], dim=1).all(dim=1)
 
 
@@ -238,12 +238,27 @@ def create_cifar100_logic(group_ixs):
         for i, group in enumerate(group_ixs):
             for ix in group:
                 ixs = np.arange(len(group_ixs))
-                outside_group = np.random.choice(ixs[ixs != i])
-                statement.append(build_logic(target=target, predictions=predictions, tgt=ix, within_group_ix=group, outside_group_ix=group_ix[outside_group]))
+                # outside_group = np.random.choice(ixs[ixs != i])
+                statement.append(build_logic(target=target, predictions=predictions, tgt=ix, within_group_ix=group, outside_group_ix=group_ix[ixs != i].reshape(-1)))
 
         return torch.stack(statement, dim=1).any(dim=1)
 
     return logic
+
+
+def create_cifar100_group_precision(group_ixs):
+
+    def logic_statement(target, within_group_ix):
+        return f"(target=={target}) & (" + \
+               "|".join([f"(predictions.argmax(dim=1) == {i})" for i in within_group_ix])+")"
+
+    statement = []
+    for group in group_ixs:
+        for ix in group:
+            statement.append(logic_statement(target=ix, within_group_ix=group))
+
+    statement = " | ".join(statement)
+    return lambda target, predictions: eval(statement)
 
 
 def get_cifar100_experiment_params(dataset):
@@ -262,7 +277,7 @@ def get_cifar100_experiment_params(dataset):
 
     examples[torch.arange(100), torch.arange(100)] = 1
 
-    return examples, create_cifar100_logic(super_class_ix), create_cifar100_logic(super_class_ix)
+    return examples, create_cifar100_logic(super_class_ix), create_cifar100_group_precision(super_class_ix)
 
 
 def calc_logic_loss(predictions, targets, logic_net, logic_func, num_classes=10, device="cpu"):
