@@ -166,9 +166,9 @@ class LogicNet(nn.Module):
 def create_cifar10_logic(animate_ix, inaminate_ix):
 
     def logic_statement(target, within_group_ix, outside_group_ix, epsilon=5):
-        # f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
         return f"(target=={target}) & " + \
-               "&".join([f"(predictions[:, {within_group_ix}] > (predictions[:, {i}].unsqueeze(1) + {epsilon})).all(dim=1)" for i in outside_group_ix])
+               f"(predictions[:, {within_group_ix}] >= 1) & " \
+               f"(predictions[:, {outside_group_ix}] < -5)"
 
     statement = []
     for a in animate_ix:
@@ -184,11 +184,8 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
 def create_cifar10_group_precision(animate_ix, inaminate_ix):
 
     def logic_statement(target, within_group_ix, outside_group_ix, epsilon=5):
-        # f"(predictions[:, {target}].unsqueeze(1) >= predictions).all(dim=1) & " + \
-        return f"(target=={target}) & " + \
-               "|".join([f"predictions.argmax(dim=1) == {i}" for i in within_group_ix])
-                   # [f"(predictions[:, {within_group_ix}] > (predictions[:, {i}].unsqueeze(1) + {epsilon})).all(dim=1)"
-                   #  for i in outside_group_ix])
+        return f"(target=={target}) & (" + \
+               "|".join([f"(predictions.argmax(dim=1) == {i})" for i in within_group_ix]) + ")"
 
     statement = []
     for a in animate_ix:
@@ -197,8 +194,7 @@ def create_cifar10_group_precision(animate_ix, inaminate_ix):
     for ia in inaminate_ix:
         statement.append(logic_statement(target=ia, within_group_ix=inaminate_ix, outside_group_ix=animate_ix))
 
-    statement = " | ".join(statement)
-    return lambda target, predictions: eval(statement)
+    return lambda target, predictions: eval(" | ".join(statement))
 
 
 def get_cifar10_experiment_params(dataset):
@@ -222,7 +218,7 @@ def get_cifar10_experiment_params(dataset):
 
     examples[torch.arange(10), torch.arange(10)] = 1
 
-    return examples, create_cifar10_logic(animate_ix, inanimate_ix), create_cifar10_logic(animate_ix, inanimate_ix)
+    return examples, create_cifar10_logic(animate_ix, inanimate_ix), create_cifar10_group_precision(animate_ix, inanimate_ix)
 
 
 def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=0.01):
