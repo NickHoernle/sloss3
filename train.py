@@ -186,12 +186,13 @@ def main():
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, num_classes=model.num_classes, device=device)
 
         # override the oprimizer from above
-        # optimizer = torch.optim.SGD(model.local_parameters, # TODO: still might be better for parameters()
-        #                             args.lr,
-        #                             momentum=args.momentum,
-        #                             nesterov=args.nesterov,
-        #                             weight_decay=args.weight_decay)
+        optimizer = torch.optim.SGD(model.local_parameters, # TODO: still might be better for parameters()
+                                    args.lr,
+                                    momentum=args.momentum,
+                                    nesterov=args.nesterov,
+                                    weight_decay=args.weight_decay)
         # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=.2)
 
     name = "_".join([str(getattr(args, source)) for source in ['lr', 'sloss', 'sloss_weight', 'dataset']])
 
