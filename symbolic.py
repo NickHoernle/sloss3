@@ -147,13 +147,13 @@ class LogicNet(nn.Module):
     def __init__(self, num_classes=10):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(num_classes*2, 250),
+            nn.Linear(num_classes*2, 1000),
             nn.LeakyReLU(.2),
-            nn.Linear(250, 250),
+            nn.Linear(1000, 250),
             nn.LeakyReLU(.2),
-            nn.Linear(250, 250),
+            nn.Linear(250, 50),
             nn.LeakyReLU(.2),
-            nn.Linear(250, 1),
+            nn.Linear(50, 1),
         )
         self.apply(init_weights)
 
