@@ -209,10 +209,10 @@ def get_cifar10_experiment_params(dataset):
     examples *= -10
 
     for a in animate_ix:
-        examples[a, animate_ix] = 1
+        examples[a, animate_ix] = -2
 
     for ia in inanimate_ix:
-        examples[ia, inanimate_ix] = 1
+        examples[ia, inanimate_ix] = -2
 
     examples[torch.arange(10), torch.arange(10)] = 1
 
