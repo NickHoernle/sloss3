@@ -298,6 +298,15 @@ def train(train_loader, model, logic_net,
     model.train()
 
     end = time.time()
+    
+    net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
+                                                  logic_optimizer, decoder_optimizer, logic_scheduler,
+                                                  decoder_scheduler,
+                                                  params, device=device)
+
+    logic_losses.update(logic_loss.data.item(), 5000)
+    net_logic_losses.update(net_logic_loss.data.item(), 5000)
+
     for i, (input, target) in enumerate(train_loader):
         # target = target.cuda(non_blocking=True)
         # input = input.cuda(non_blocking=True)
@@ -309,13 +318,6 @@ def train(train_loader, model, logic_net,
             output = model(input)
             loss = criterion(output, target)
         else:
-            net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
-                            logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler,
-                            params, device=device)
-
-            logic_losses.update(logic_loss.data.item(), 5000)
-            net_logic_losses.update(net_logic_loss.data.item(), 5000)
-
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
             # recon_loss += criterion(theta, target)
