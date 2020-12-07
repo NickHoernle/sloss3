@@ -321,13 +321,14 @@ def train(train_loader, model, logic_net,
             # recon_loss += criterion(theta, target)
 
             loss = 0
+            weight = np.max([1., epoch / 25])
+
             loss += recon_loss
             kld = -0.5 * (1 + lv - np.log(9.) - (mu.pow(2) + lv.exp())/9.).mean()
-            loss += kld
+            loss += weight*kld
 
             preds, true = calc_logic(output, target)
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
-            weight = np.max([1., epoch / 25])
             # loss += logic_loss_.mean()
             loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
 
