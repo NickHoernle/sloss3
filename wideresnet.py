@@ -117,7 +117,7 @@ class WideResNet(nn.Module):
         theta = torch.log_softmax(z, dim=-1)
         # theta = z
         targets = torch.argmax(theta, dim=1).detach()
-        return self.net(theta), targets, theta
+        return self.net(theta)+theta, targets, theta
 
     def forward(self, x):
         out = self.conv1(x)
@@ -132,7 +132,7 @@ class WideResNet(nn.Module):
         mu, lv = self.fc(out), self.lv(out)
         theta = torch.log_softmax(reparameterise(mu, lv), dim=1)
         # theta = reparameterise(mu, lv)
-        return self.net(theta), (mu, lv), theta
+        return self.net(theta)+theta, (mu, lv), theta
 
     def test(self, x):
         if not self.semantic_loss:
@@ -140,4 +140,4 @@ class WideResNet(nn.Module):
         _, (mu, lv), _ = self.forward(x)
         theta = torch.log_softmax(mu, dim=1)
         # theta = mu
-        return self.net(theta)
+        return self.net(theta)+theta
