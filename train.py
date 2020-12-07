@@ -257,24 +257,24 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
         logic_net.eval()
         model.train()
 
-    # train the network to obey the logic
-    decoder_optimizer.zero_grad()
+        # train the network to obey the logic
+        decoder_optimizer.zero_grad()
 
-    samps, tgts, thet = model.sample(5000)
-    preds, true = calc_logic(samps, tgts)
-    logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
+        samps, tgts, thet = model.sample(5000)
+        preds, true = calc_logic(samps, tgts)
+        logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
 
-    loss = 0
-    # loss = params.sloss_weight*logic_loss_.mean()
-    loss = F.mse_loss(samps, examples[tgts], reduction="none")[~true].sum() / len(true)
-    loss += F.cross_entropy(samps, tgts, reduction="none")[true].sum() / len(true)
-    loss += params.sloss_weight*logic_loss_.mean()
+        loss = 0
+        # loss = params.sloss_weight*logic_loss_.mean()
+        loss = F.mse_loss(samps, examples[tgts], reduction="none")[~true].sum() / len(true)
+        loss += F.cross_entropy(samps, tgts, reduction="none")[true].sum() / len(true)
+        loss += params.sloss_weight*logic_loss_.mean()
 
-    print(true.float().mean(), len(true), loss)
+        print(true.float().mean(), len(true), loss)
 
-    loss.backward()
-    torch.nn.utils.clip_grad_norm_(model.net.parameters(), 5.)
-    decoder_optimizer.step()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.net.parameters(), 5.)
+        decoder_optimizer.step()
 
     # logic_scheduler.step()
     # decoder_scheduler.step()
