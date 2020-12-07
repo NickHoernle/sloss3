@@ -148,14 +148,12 @@ class LogicNet(nn.Module):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(num_classes*2, 250),
-            nn.LeakyReLU(),
-            nn.Linear(250, 500),
-            nn.LeakyReLU(),
-            nn.Linear(500, 500),
-            nn.LeakyReLU(),
-            nn.Linear(500, 50),
-            nn.LeakyReLU(),
-            nn.Linear(50, 1)
+            nn.LeakyReLU(.2),
+            nn.Linear(250, 250),
+            nn.LeakyReLU(.2),
+            nn.Linear(250, 250),
+            nn.LeakyReLU(.2),
+            nn.Linear(250, 1),
         )
         self.apply(init_weights)
 
@@ -165,10 +163,9 @@ class LogicNet(nn.Module):
 
 def create_cifar10_logic(animate_ix, inaminate_ix):
 
-    def logic_statement(target, within_group_ix, outside_group_ix, epsilon=5):
-        return f"(target=={target}) & " + \
-               f"(predictions[:, {within_group_ix}] >= 1).all(dim=1) & " \
-               f"(predictions[:, {outside_group_ix}] < -5).all(dim=1)"
+    def logic_statement(target, within_group_ix, outside_group_ix, epsilon=1.):
+        return f"((target=={target}) & " + \
+               "&".join([f"(predictions[:, {within_group_ix}] > (predictions[:, {i}].unsqueeze(1) + {epsilon})).all(dim=1)" for i in outside_group_ix])+")"
 
     statement = []
     for a in animate_ix:
@@ -178,6 +175,7 @@ def create_cifar10_logic(animate_ix, inaminate_ix):
         statement.append(logic_statement(target=ia, within_group_ix=inaminate_ix, outside_group_ix=animate_ix))
 
     statement = " | ".join(statement)
+    # print(statement)
     return lambda target, predictions: eval(statement)
 
 
@@ -221,10 +219,10 @@ def get_cifar10_experiment_params(dataset):
     return examples, create_cifar10_logic(animate_ix, inanimate_ix), create_cifar10_group_precision(animate_ix, inanimate_ix)
 
 
+def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=0.0):
+    return torch.stack([target == tgt] + [((predictions[:, outside_group_ix] + epsilon) < predictions[:, i].unsqueeze(1)).all(dim=1) for i in within_group_ix], dim=1).all(dim=1)
 # def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=1.):
-#     return torch.stack([target == tgt] + [((predictions[:, outside_group_ix] + epsilon) < predictions[:, i].unsqueeze(1)).all(dim=1) for i in within_group_ix], dim=1).all(dim=1)
-def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=1.):
-    return torch.stack([target == tgt] + [(predictions[:, outside_group_ix] <= -2).all(dim=1)] + [(predictions[:, within_group_ix] >= 1).all(dim=1)], dim=1).all(dim=1)
+#     return torch.stack([target == tgt] + [(predictions[:, outside_group_ix] <= -2).all(dim=1)] + [(predictions[:, within_group_ix] >= 1).all(dim=1)], dim=1).all(dim=1)
 
 
 def create_cifar100_logic(group_ixs):
@@ -236,8 +234,8 @@ def create_cifar100_logic(group_ixs):
         for i, group in enumerate(group_ixs):
             for ix in group:
                 ixs = np.arange(len(group_ixs))
-                outside_group = np.random.choice(ixs[ixs != i])
-                statement.append(build_logic(target=target, predictions=predictions, tgt=ix, within_group_ix=group, outside_group_ix=group_ix[outside_group].reshape(-1)))
+                # outside_group = np.random.choice(ixs[ixs != i])
+                statement.append(build_logic(target=target, predictions=predictions, tgt=ix, within_group_ix=group, outside_group_ix=group_ix[ixs != i].reshape(-1)))
 
         return torch.stack(statement, dim=1).any(dim=1)
 
@@ -267,13 +265,13 @@ def get_cifar100_experiment_params(dataset):
         super_class_ix.append([i for i, l in enumerate(classes) if superclass_mapping[l] == sc_l])
 
     examples = torch.ones(100, 100)
-    examples *= -2
+    examples *= -15
 
     for group in super_class_ix:
         for ix in group:
-            examples[ix, group] = 1
+            examples[ix, group] = -5
 
-    examples[torch.arange(100), torch.arange(100)] = 2
+    # examples[torch.arange(100), torch.arange(100)] =
 
     return examples, create_cifar100_logic(super_class_ix), create_cifar100_logic(super_class_ix)
 
