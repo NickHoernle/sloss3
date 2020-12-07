@@ -266,8 +266,8 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
 
     loss = 0
     # loss = params.sloss_weight*logic_loss_.mean()
-    loss = F.mse_loss(samps, examples[tgts], reduction="none")[~true].sum()/len(true)
-    loss += F.cross_entropy(samps, tgts, reduction="none")[true].sum() / len(true)
+    # loss = F.mse_loss(samps, examples[tgts], reduction="none")[~true].sum()/len(true)
+    loss += F.cross_entropy(samps, tgts) #, reduction="none")[true].sum() / len(true)
     loss += params.sloss_weight*logic_loss_.mean()
 
     print(true.float().mean(), len(true), loss)
@@ -313,8 +313,8 @@ def train(train_loader, model, logic_net,
                             logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler,
                             params, device=device)
 
-            logic_losses.update(logic_loss.data.item(), 1000)
-            net_logic_losses.update(net_logic_loss.data.item(), 1000)
+            logic_losses.update(logic_loss.data.item(), 5000)
+            net_logic_losses.update(net_logic_loss.data.item(), 5000)
 
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
