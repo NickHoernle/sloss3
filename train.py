@@ -306,8 +306,8 @@ def train(train_loader, model, logic_net,
                                                       decoder_scheduler,
                                                       params, device=device)
 
-    logic_losses.update(logic_loss.data.item(), 5000)
-    net_logic_losses.update(net_logic_loss.data.item(), 5000)
+        logic_losses.update(logic_loss.data.item(), 5000)
+        net_logic_losses.update(net_logic_loss.data.item(), 5000)
 
     for i, (input, target) in enumerate(train_loader):
         # target = target.cuda(non_blocking=True)
