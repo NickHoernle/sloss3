@@ -266,11 +266,11 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
 
     loss = 0
     # loss = params.sloss_weight*logic_loss_.mean()
-    # loss = F.mse_loss(samps, examples[tgts], reduction="none")[~true].sum()/len(true)
-    loss += F.cross_entropy(samps, tgts) #, reduction="none")[true].sum() / len(true)
+    loss = F.mse_loss(samps, examples[tgts])
+    # loss += F.cross_entropy(samps, tgts) #, reduction="none")[true].sum() / len(true)
     loss += params.sloss_weight*logic_loss_.mean()
 
-    print(true.float().mean(), len(true), loss)
+    # print(true.float().mean(), len(true), loss)
 
     loss.backward()
     torch.nn.utils.clip_grad_norm_(model.net.parameters(), 5.)
