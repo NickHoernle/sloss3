@@ -237,20 +237,19 @@ def main():
 
 
 def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, decoder_optimizer, logic_scheduler, decoder_scheduler, params, device):
+    logic_net.train()
+    model.eval()
+
     for i in range(10):
         # train the logic net
-        logic_net.train()
-        model.eval()
-
         logic_optimizer.zero_grad()
 
         samps, tgts, thet = model.sample(5000)
         preds, true = calc_logic(samps, tgts)
         logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
-        # import pdb
-        # pdb.set_trace()
         preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
         logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
+
         logic_loss.backward()
         torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 5.)
         logic_optimizer.step()
@@ -300,14 +299,14 @@ def train(train_loader, model, logic_net,
 
     end = time.time()
 
-    # if params.sloss:
-    #     net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
-    #                                                   logic_optimizer, decoder_optimizer, logic_scheduler,
-    #                                                   decoder_scheduler,
-    #                                                   params, device=device)
-    #
-    #     logic_losses.update(logic_loss.data.item(), 5000)
-    #     net_logic_losses.update(net_logic_loss.data.item(), 5000)
+    if params.sloss:
+        net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
+                                                      logic_optimizer, decoder_optimizer, logic_scheduler,
+                                                      decoder_scheduler,
+                                                      params, device=device)
+
+        logic_losses.update(logic_loss.data.item(), 5000)
+        net_logic_losses.update(net_logic_loss.data.item(), 5000)
 
     for i, (input, target) in enumerate(train_loader):
         # target = target.cuda(non_blocking=True)
@@ -322,7 +321,7 @@ def train(train_loader, model, logic_net,
         else:
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
-            # recon_loss += criterion(theta, target)
+            recon_loss += F.nll_loss(theta, target)
 
             loss = 0
             weight = np.max([1., epoch / 25])
