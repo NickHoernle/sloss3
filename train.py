@@ -300,14 +300,14 @@ def train(train_loader, model, logic_net,
 
     end = time.time()
 
-    if params.sloss:
-        net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
-                                                      logic_optimizer, decoder_optimizer, logic_scheduler,
-                                                      decoder_scheduler,
-                                                      params, device=device)
-
-        logic_losses.update(logic_loss.data.item(), 5000)
-        net_logic_losses.update(net_logic_loss.data.item(), 5000)
+    # if params.sloss:
+    #     net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
+    #                                                   logic_optimizer, decoder_optimizer, logic_scheduler,
+    #                                                   decoder_scheduler,
+    #                                                   params, device=device)
+    #
+    #     logic_losses.update(logic_loss.data.item(), 5000)
+    #     net_logic_losses.update(net_logic_loss.data.item(), 5000)
 
     for i, (input, target) in enumerate(train_loader):
         # target = target.cuda(non_blocking=True)
@@ -331,10 +331,10 @@ def train(train_loader, model, logic_net,
             kld = -0.5 * (1 + lv - np.log(9.) - (mu.pow(2) + lv.exp())/9.).mean()
             loss += kld
 
-            preds, true = calc_logic(output, target)
-            logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
+            # preds, true = calc_logic(output, target)
+            # logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
             # loss += logic_loss_.mean()
-            loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
+            # loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
