@@ -265,13 +265,13 @@ def get_cifar100_experiment_params(dataset):
         super_class_ix.append([i for i, l in enumerate(classes) if superclass_mapping[l] == sc_l])
 
     examples = torch.ones(100, 100)
-    examples *= -15
+    examples *= -10
 
     for group in super_class_ix:
         for ix in group:
-            examples[ix, group] = -5
+            examples[ix, group] = -2
 
-    # examples[torch.arange(100), torch.arange(100)] =
+    examples[torch.arange(100), torch.arange(100)] = 1
 
     return examples, create_cifar100_logic(super_class_ix), create_cifar100_logic(super_class_ix)
 
