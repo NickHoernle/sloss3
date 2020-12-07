@@ -343,6 +343,7 @@ def train(train_loader, model, logic_net,
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.net.parameters(), 1.)
         optimizer.step()
         # scheduler.step()
 
