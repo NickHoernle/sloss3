@@ -84,13 +84,11 @@ class WideResNet(nn.Module):
             self.lv = nn.Sequential(nn.Linear(nChannels[3], num_classes))
 
             self.net = nn.Sequential(
-                nn.Linear(num_classes, 1000),
+                nn.Linear(num_classes, num_classes),
                 nn.LeakyReLU(.2),
-                nn.Linear(1000, 250),
+                nn.Linear(num_classes, num_classes),
                 nn.LeakyReLU(.2),
-                nn.Linear(250, 50),
-                nn.LeakyReLU(.2),
-                nn.Linear(50, num_classes),
+                nn.Linear(num_classes, num_classes)
             )
 
         for m in self.modules():
@@ -114,10 +112,10 @@ class WideResNet(nn.Module):
     def sample(self, num_samples=1000):
         assert self.semantic_loss
         z = 3 * torch.randn((num_samples, self.num_classes)).to(self.device)
-        theta = torch.log_softmax(z, dim=-1)
+        theta = torch.softmax(z, dim=-1)
         # theta = z
         targets = torch.argmax(theta, dim=1).detach()
-        return self.net(theta)+theta, targets, theta
+        return self.net(theta), targets, theta
 
     def forward(self, x):
         out = self.conv1(x)

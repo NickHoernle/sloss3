@@ -166,15 +166,15 @@ def main():
         logic_net.to(device)
 
         logic_optimizer = torch.optim.Adam(logic_net.parameters(), 1e-1*args.lr)
-        # logic_optimizer = torch.optim.SGD(logic_net.parameters(),
-        #                             args.lr,
-        #                             momentum=args.momentum,
-        #                             nesterov=args.nesterov,
-        #                             weight_decay=args.weight_decay)
+        logic_optimizer = torch.optim.SGD(logic_net.parameters(),
+                                    args.lr,
+                                    momentum=args.momentum,
+                                    nesterov=args.nesterov,
+                                    weight_decay=args.weight_decay)
         # logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs, eta_min=1e-8)
         logic_scheduler = torch.optim.lr_scheduler.StepLR(logic_optimizer, step_size=25, gamma=.2)
 
-        decoder_optimizer = torch.optim.Adam(model.global_paramters, 1e-1*args.lr)
+        decoder_optimizer = torch.optim.Adam(model.global_paramters, args.lr)
         # decoder_optimizer = torch.optim.SGD(model.global_paramters,
         #                                   args.lr,
         #                                   momentum=args.momentum,
@@ -240,41 +240,48 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
     logic_net.train()
     model.eval()
 
-    for i in range(10):
+    for i in range(100):
         # train the logic net
         logic_optimizer.zero_grad()
 
-        samps, tgts, thet = model.sample(5000)
-        preds, true = calc_logic(samps, tgts)
-        logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
-        preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
-        logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
+        samps, tgts, thet = model.sample(1000)
+        preds, true = calc_logic(samps.detach(), tgts)
 
-        logic_loss.backward()
-        torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 5.)
-        logic_optimizer.step()
+        if true.float().mean() < .95:
+            logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
+            preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
+            logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
 
-        logic_net.eval()
-        model.train()
+            logic_loss.backward()
+            torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 5.)
+            logic_optimizer.step()
 
-        # train the network to obey the logic
-        decoder_optimizer.zero_grad()
+            logic_net.eval()
+            model.train()
 
-        samps, tgts, thet = model.sample(5000)
-        preds, true = calc_logic(samps, tgts)
-        logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
+            # train the network to obey the logic
+            decoder_optimizer.zero_grad()
 
-        loss = 0
-        # loss = params.sloss_weight*logic_loss_.mean()
-        loss = F.mse_loss(samps, examples[tgts], reduction="none")[~true].sum() / len(true)
-        loss += F.cross_entropy(samps, tgts, reduction="none")[true].sum() / len(true)
-        loss += params.sloss_weight*logic_loss_.mean()
+            if i == 250:
+                import pdb
+                pdb.set_trace()
+            preds, true = calc_logic(samps, tgts)
+            logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
 
-        print(true.float().mean(), len(true), loss)
+            loss = 0
+            # loss = params.sloss_weight*logic_loss_.mean()
+            # loss = F.cross_entropy(samps, tgts)
+            loss = F.mse_loss(samps, examples[tgts], reduction="none").mean(dim=-1)[~true].sum() / len(true)
+            loss += F.cross_entropy(samps, tgts, reduction="none")[true].sum() / len(true)
+            sloss = logic_loss_.mean()
+            weight = (true.sum() > 100).float().detach()
+            loss += weight*params.sloss_weight*sloss
 
-        loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.net.parameters(), 5.)
-        decoder_optimizer.step()
+            print(true.sum(), len(true), loss.item(), sloss.item())
+
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.net.parameters(), 5.)
+            decoder_optimizer.step()
 
     # logic_scheduler.step()
     # decoder_scheduler.step()
