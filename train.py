@@ -337,10 +337,10 @@ def train(train_loader, model, logic_net,
             kld = -0.5 * (1 + lv - np.log(9.) - (mu.pow(2) + lv.exp())/9.).mean()
             loss += weight*kld
 
-            preds, true = calc_logic(output, target)
-            logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
-            loss += logic_loss_.mean()
-            loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
+            # preds, true = calc_logic(output, target)
+            # logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
+            # loss += logic_loss_.mean()
+            # loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
