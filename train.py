@@ -240,7 +240,7 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
     logic_net.train()
     model.eval()
 
-    for i in range(50):
+    for i in range(100):
         # train the logic net
         logic_optimizer.zero_grad()
 
