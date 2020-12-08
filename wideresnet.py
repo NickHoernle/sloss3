@@ -84,11 +84,11 @@ class WideResNet(nn.Module):
             self.lv = nn.Sequential(nn.Linear(nChannels[3], num_classes))
 
             self.net = nn.Sequential(
-                nn.Linear(num_classes, num_classes),
+                nn.Linear(num_classes, 250),
                 nn.LeakyReLU(.2),
-                nn.Linear(num_classes, num_classes),
+                nn.Linear(250, 250),
                 nn.LeakyReLU(.2),
-                nn.Linear(num_classes, num_classes)
+                nn.Linear(250, num_classes)
             )
 
         for m in self.modules():

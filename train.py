@@ -165,7 +165,7 @@ def main():
         logic_net = LogicNet(num_classes=len(train_loader.dataset.classes))
         logic_net.to(device)
 
-        logic_optimizer = torch.optim.Adam(logic_net.parameters(), 1e-1*args.lr)
+        # logic_optimizer = torch.optim.Adam(logic_net.parameters(), 1e-1*args.lr)
         logic_optimizer = torch.optim.SGD(logic_net.parameters(),
                                     args.lr,
                                     momentum=args.momentum,
@@ -174,12 +174,12 @@ def main():
         # logic_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(logic_optimizer, len(train_loader) * args.epochs, eta_min=1e-8)
         logic_scheduler = torch.optim.lr_scheduler.StepLR(logic_optimizer, step_size=25, gamma=.2)
 
-        decoder_optimizer = torch.optim.Adam(model.global_paramters, args.lr)
-        # decoder_optimizer = torch.optim.SGD(model.global_paramters,
-        #                                   args.lr,
-        #                                   momentum=args.momentum,
-        #                                   nesterov=args.nesterov,
-        #                                   weight_decay=args.weight_decay)
+        # decoder_optimizer = torch.optim.Adam(model.global_paramters, args.lr)
+        decoder_optimizer = torch.optim.SGD(model.global_paramters,
+                                          args.lr,
+                                          momentum=args.momentum,
+                                          nesterov=args.nesterov,
+                                          weight_decay=args.weight_decay)
         # decoder_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(decoder_optimizer, len(train_loader) * args.epochs, eta_min=1e-8)
         decoder_scheduler = torch.optim.lr_scheduler.StepLR(decoder_optimizer, step_size=25, gamma=.2)
 
@@ -240,7 +240,7 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
     logic_net.train()
     model.eval()
 
-    for i in range(100):
+    for i in range(50):
         # train the logic net
         logic_optimizer.zero_grad()
 
@@ -271,7 +271,7 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
             loss = F.mse_loss(samps, examples[tgts], reduction="none").mean(dim=-1)[~true].sum() / len(true)
             loss += F.cross_entropy(samps, tgts, reduction="none")[true].sum() / len(true)
             sloss = logic_loss_.mean()
-            weight = (true.sum() > 100).float().detach()
+            weight = (true.float().mean() > .1).float().detach()
             loss += weight*params.sloss_weight*sloss
 
             print(true.sum(), len(true), loss.item(), sloss.item())
@@ -334,10 +334,10 @@ def train(train_loader, model, logic_net,
             kld = -0.5 * (1 + lv - np.log(9.) - (mu.pow(2) + lv.exp())/9.).mean()
             loss += kld
 
-            # preds, true = calc_logic(output, target)
-            # logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
-            # loss += logic_loss_.mean()
-            # loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
+            preds, true = calc_logic(output, target)
+            logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
+            loss += logic_loss_.mean()
+            loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
