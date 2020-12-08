@@ -262,9 +262,6 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
             # train the network to obey the logic
             decoder_optimizer.zero_grad()
 
-            if i == 250:
-                import pdb
-                pdb.set_trace()
             preds, true = calc_logic(samps, tgts)
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
 
@@ -328,7 +325,7 @@ def train(train_loader, model, logic_net,
         else:
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
-            # recon_loss += F.nll_loss(theta, target)
+            recon_loss += F.nll_loss(theta.log(), target)
 
             loss = 0
             weight = np.max([1., epoch / 25])
