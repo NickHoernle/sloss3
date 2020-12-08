@@ -328,7 +328,7 @@ def train(train_loader, model, logic_net,
         else:
             output, (mu, lv), theta = model(input)
             recon_loss = criterion(output, target)
-            recon_loss += F.nll_loss(theta, target)
+            # recon_loss += F.nll_loss(theta, target)
 
             loss = 0
             weight = np.max([1., epoch / 25])
