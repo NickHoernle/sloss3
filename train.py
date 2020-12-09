@@ -186,13 +186,13 @@ def main():
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, num_classes=model.num_classes, device=device)
 
         # override the oprimizer from above
-        # optimizer = torch.optim.SGD(model.local_parameters, # TODO: still might be better for parameters()
-        #                             args.lr,
-        #                             momentum=args.momentum,
-        #                             nesterov=args.nesterov,
-        #                             weight_decay=args.weight_decay)
-        # # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
-        # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=.2)
+        optimizer = torch.optim.SGD(model.local_parameters, # TODO: still might be better for parameters()
+                                    args.lr,
+                                    momentum=args.momentum,
+                                    nesterov=args.nesterov,
+                                    weight_decay=args.weight_decay)
+        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=.2)
 
     name = "_".join([str(getattr(args, source)) for source in ['lr', 'sloss', 'sloss_weight', 'dataset']])
 
@@ -269,7 +269,7 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
             # loss = params.sloss_weight*logic_loss_.mean()
             # loss = F.cross_entropy(samps, tgts)
             loss = F.mse_loss(samps, examples[tgts], reduction="none").mean(dim=-1)[~true].sum() / len(true)
-            loss += F.cross_entropy(samps, tgts, reduction="none")[true].sum() / len(true)
+            loss += F.cross_entropy(samps, tgts)
             sloss = logic_loss_.mean()
             weight = (true.float().mean() > .1).float().detach()
             loss += weight*params.sloss_weight*sloss
@@ -324,8 +324,8 @@ def train(train_loader, model, logic_net,
             loss = criterion(output, target)
         else:
             output, (mu, lv), theta = model(input)
-            recon_loss = criterion(output, target)
-            recon_loss += F.nll_loss(theta.log(), target)
+            # recon_loss = criterion(output, target)
+            recon_loss = F.nll_loss(theta.log(), target)
 
             loss = 0
             weight = np.max([1., epoch / 25])
@@ -337,7 +337,7 @@ def train(train_loader, model, logic_net,
             preds, true = calc_logic(output, target)
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
             loss += logic_loss_.mean()
-            loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
+            # loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
 
         # measure accuracy and record loss
         prec1 = accuracy(output.data, target, topk=(1,))[0]
