@@ -185,15 +185,6 @@ def main():
 
         calc_logic = lambda predictions, targets: calc_logic_loss(predictions, targets, logic_net, logic_fn, num_classes=model.num_classes, device=device)
 
-        # override the oprimizer from above
-        optimizer = torch.optim.SGD(model.local_parameters, # TODO: still might be better for parameters()
-                                    args.lr,
-                                    momentum=args.momentum,
-                                    nesterov=args.nesterov,
-                                    weight_decay=args.weight_decay)
-        # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, len(train_loader) * args.epochs)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=.2)
-
     name = "_".join([str(getattr(args, source)) for source in ['lr', 'sloss', 'sloss_weight', 'dataset']])
 
     if args.resume:
@@ -244,46 +235,47 @@ def train_logic_step(model, logic_net, calc_logic, examples, logic_optimizer, de
         # train the logic net
         logic_optimizer.zero_grad()
 
-        samps, tgts, thet = model.sample(1000)
+        samps, tgts = model.sample(1000)
         preds, true = calc_logic(samps.detach(), tgts)
 
-        if true.float().mean() < .95:
-            logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
-            preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
-            logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
+        # if true.float().mean() < .95:
+        logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
+        preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
+        logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
 
-            logic_loss.backward()
-            torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 5.)
-            logic_optimizer.step()
+        logic_loss.backward()
+        torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 5.)
+        logic_optimizer.step()
 
-            logic_net.eval()
-            model.train()
+        logic_net.eval()
+        model.train()
+        print(logic_loss.item())
 
             # train the network to obey the logic
-            decoder_optimizer.zero_grad()
-
-            preds, true = calc_logic(samps, tgts)
-            logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
-
-            loss = 0
-            # loss = params.sloss_weight*logic_loss_.mean()
-            # loss = F.cross_entropy(samps, tgts)
-            loss = F.mse_loss(samps, examples[tgts], reduction="none").mean(dim=-1)[~true].sum() / len(true)
-            loss += F.cross_entropy(samps, tgts)
-            sloss = logic_loss_.mean()
-            weight = (true.float().mean() > .1).float().detach()
-            loss += weight*params.sloss_weight*sloss
-
-            print(true.sum(), len(true), loss.item(), sloss.item())
-
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.net.parameters(), 5.)
-            decoder_optimizer.step()
+            # decoder_optimizer.zero_grad()
+            #
+            # preds, true = calc_logic(samps, tgts)
+            # logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
+            #
+            # loss = 0
+            # # loss = params.sloss_weight*logic_loss_.mean()
+            # # loss = F.cross_entropy(samps, tgts)
+            # loss = F.mse_loss(samps, examples[tgts], reduction="none").mean(dim=-1)[~true].sum() / len(true)
+            # loss += F.cross_entropy(samps, tgts)
+            # sloss = logic_loss_.mean()
+            # weight = (true.float().mean() > .1).float().detach()
+            # loss += weight*params.sloss_weight*sloss
+            #
+            # print(true.sum(), len(true), loss.item(), sloss.item())
+            #
+            # loss.backward()
+            # torch.nn.utils.clip_grad_norm_(model.net.parameters(), 5.)
+            # decoder_optimizer.step()
 
     # logic_scheduler.step()
     # decoder_scheduler.step()
 
-    return loss, logic_loss
+    return logic_loss, logic_loss
 
 
 def train(train_loader, model, logic_net,
@@ -303,14 +295,14 @@ def train(train_loader, model, logic_net,
 
     end = time.time()
 
-    if params.sloss:
-        net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
-                                                      logic_optimizer, decoder_optimizer, logic_scheduler,
-                                                      decoder_scheduler,
-                                                      params, device=device)
-
-        logic_losses.update(logic_loss.data.item(), 1000)
-        net_logic_losses.update(net_logic_loss.data.item(), 1000)
+    # if params.sloss:
+    #     net_logic_loss, logic_loss = train_logic_step(model, logic_net, calc_logic, examples,
+    #                                                   logic_optimizer, decoder_optimizer, logic_scheduler,
+    #                                                   decoder_scheduler,
+    #                                                   params, device=device)
+    #
+    #     logic_losses.update(logic_loss.data.item(), 1000)
+    #     net_logic_losses.update(net_logic_loss.data.item(), 1000)
 
     for i, (input, target) in enumerate(train_loader):
         # target = target.cuda(non_blocking=True)
@@ -323,16 +315,24 @@ def train(train_loader, model, logic_net,
             output = model(input)
             loss = criterion(output, target)
         else:
-            output, (mu, lv), theta = model(input)
-            # recon_loss = criterion(output, target)
-            recon_loss = F.nll_loss(theta.log(), target)
+            output = model(input)
 
-            loss = 0
-            weight = np.max([1., epoch / 25])
+            logic_net.train()
+            preds, true = calc_logic(output.detach(), target)
 
-            loss += recon_loss
-            kld = -0.5 * (1 + lv - np.log(9.) - (mu.pow(2) + lv.exp())/9.).mean()
-            loss += kld
+            logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
+            preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
+            logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
+
+            logic_loss.backward()
+            torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 5.)
+            logic_optimizer.step()
+
+            logic_net.eval()
+
+            recon_loss = criterion(output, target)
+            # recon_loss = F.nll_loss(output, target)
+            loss = recon_loss
 
             preds, true = calc_logic(output, target)
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
@@ -394,14 +394,9 @@ def validate(val_loader, model, criterion, epoch, params, calc_logic, device="cu
         input = input.to(device, non_blocking=True)
 
         # compute output
-        if not params.sloss:
-            with torch.no_grad():
-                output = model(input)
-            loss = criterion(output, target)
-        else:
-            with torch.no_grad():
-                output = model.test(input)
-            loss = criterion(output, target)
+        with torch.no_grad():
+            output = model(input)
+        loss = criterion(output, target)
 
         true_logic = calc_logic(target, output)
         logic_accuracy.update(true_logic.float().mean(), input.size(0))

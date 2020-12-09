@@ -112,10 +112,7 @@ class WideResNet(nn.Module):
     def sample(self, num_samples=1000):
         assert self.semantic_loss
         z = 3 * torch.randn((num_samples, self.num_classes)).to(self.device)
-        theta = torch.softmax(z, dim=-1)
-        # theta = z
-        targets = torch.argmax(theta, dim=1).detach()
-        return self.net(theta), targets, theta
+        return z, torch.argmax(z, dim=1).detach()
 
     def forward(self, x):
         out = self.conv1(x)
@@ -125,17 +122,4 @@ class WideResNet(nn.Module):
         out = self.relu(self.bn1(out))
         out = F.avg_pool2d(out, 8)
         out = out.view(-1, self.nChannels)
-        if not self.semantic_loss:
-            return self.fc(out)
-        mu, lv = self.fc(out), self.lv(out)
-        theta = torch.softmax(reparameterise(mu, lv), dim=1)
-        # theta = reparameterise(mu, lv)
-        return self.net(theta), (mu, lv), theta
-
-    def test(self, x):
-        if not self.semantic_loss:
-            return self.forward(x)
-        _, (mu, lv), _ = self.forward(x)
-        theta = torch.softmax(mu, dim=1)
-        # theta = mu
-        return self.net(theta)
+        return self.fc(out)
