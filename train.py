@@ -318,11 +318,11 @@ def train(train_loader, model, logic_net,
             output = model(input)
 
             logic_net.train()
-            preds, true = calc_logic(output.detach(), target)
+            preds, true_l = calc_logic(output.detach(), target)
             if i == 0:
                 print(true.float().mean())
 
-            logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
+            logic_loss = F.binary_cross_entropy_with_logits(preds, true_l.float())
             preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
             logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
 
@@ -330,9 +330,13 @@ def train(train_loader, model, logic_net,
             torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 5.)
             logic_optimizer.step()
 
+            logic_losses.update(logic_loss.data.item(), input.size(0))
+
             logic_net.eval()
 
-            recon_loss = criterion(output, target)
+            # recon_loss = criterion(output, target)
+            recon_loss = F.mse_loss(output, examples[target], reduction="none")[~true_l].mean()
+            recon_loss += F.criterion(output, target, reduction="none")[true_l].mean()
             # recon_loss = F.nll_loss(output, target)
             loss = recon_loss
 
