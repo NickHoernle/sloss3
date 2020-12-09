@@ -319,6 +319,8 @@ def train(train_loader, model, logic_net,
 
             logic_net.train()
             preds, true = calc_logic(output.detach(), target)
+            if i == 0:
+                print(true.float().mean())
 
             logic_loss = F.binary_cross_entropy_with_logits(preds, true.float())
             preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
