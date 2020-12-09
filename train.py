@@ -340,7 +340,7 @@ def train(train_loader, model, logic_net,
             # recon_loss = F.nll_loss(output, target)
             loss = recon_loss
 
-            weight = np.min(1., epoch/25)
+            weight = np.min([1., epoch/25])
             preds, true = calc_logic(output, target)
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
             loss += params.sloss_weight*weight*logic_loss_.mean()
