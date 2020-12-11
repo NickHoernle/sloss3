@@ -321,7 +321,6 @@ def train(train_loader, model, logic_net,
             preds, true_l = calc_logic(output.detach(), target)
             if i == 0:
                 print(true_l.float().mean())
-
             logic_loss = F.binary_cross_entropy_with_logits(preds, true_l.float())
             preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
             logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
@@ -335,15 +334,22 @@ def train(train_loader, model, logic_net,
             logic_net.eval()
 
             # recon_loss = criterion(output, target)
-            recon_loss = F.mse_loss(output, examples[target], reduction="none")[~true_l].mean()
-            recon_loss += F.cross_entropy(output, target, reduction="none")[true_l].mean()
+            recon_loss = 0
+            if (~true_l).sum() > 10:
+                recon_loss += F.mse_loss(output, examples[target], reduction="none")[~true_l].mean()
+            if true_l.sum() > 10:
+                recon_loss += F.cross_entropy(output, target, reduction="none")[true_l].mean()
             # recon_loss = F.nll_loss(output, target)
             loss = recon_loss
 
             weight = np.min([1., epoch/25])
             preds, true = calc_logic(output, target)
             logic_loss_ = F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds), reduction="none")
-            loss += params.sloss_weight*weight*logic_loss_.mean()
+            sloss = weight*logic_loss_.mean()
+            # sloss = *weight*logic_loss_[~true].sum() / len(true)
+            loss += params.sloss_weight*sloss
+
+            net_logic_losses.update(sloss.data.item(), input.size(0))
             # loss += params.sloss_weight*weight*logic_loss_[~true].sum() / len(true)
 
         # measure accuracy and record loss
