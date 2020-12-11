@@ -220,10 +220,10 @@ def get_cifar10_experiment_params(dataset):
 
 
 def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=0.1):
-    return torch.stack([target == tgt] + [((predictions[:, outside_group_ix] + epsilon) < predictions[:, i].unsqueeze(1)).all(dim=1) for i in within_group_ix], dim=1).all(dim=1)
+    return torch.stack([target == tgt, (predictions[:, outside_group_ix] < -9).all(dim=1), (predictions[:, within_group_ix] >= -2).all(dim=1)], dim=1)
+
 # def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=1.):
 #     return torch.stack([target == tgt] + [(predictions[:, outside_group_ix] <= -2).all(dim=1)] + [(predictions[:, within_group_ix] >= 1).all(dim=1)], dim=1).all(dim=1)
-
 
 def create_cifar100_logic(group_ixs):
 
