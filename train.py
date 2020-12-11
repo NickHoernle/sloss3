@@ -336,9 +336,9 @@ def train(train_loader, model, logic_net,
             # recon_loss = criterion(output, target)
             recon_loss = 0
             if (~true_l).sum() > 10:
-                recon_loss += F.mse_loss(output, examples[target], reduction="none")[~true_l].mean()
+                recon_loss += F.mse_loss(output, examples[target], reduction="none")[~true_l].sum()/(model.num_classes*((~true_l).sum()))
             if true_l.sum() > 10:
-                recon_loss += F.cross_entropy(output, target, reduction="none")[true_l].mean()
+                recon_loss += F.cross_entropy(output, target, reduction="none").sum()/(model.num_classes*(true_l.sum()))
             # recon_loss = F.nll_loss(output, target)
             loss = recon_loss
 
