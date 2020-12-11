@@ -327,6 +327,7 @@ def train(train_loader, model, logic_net,
 
             logic_loss.backward()
             torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 5.)
+            logic_optimizer.zero_grad()
             logic_optimizer.step()
 
             logic_losses.update(logic_loss.data.item(), input.size(0))
