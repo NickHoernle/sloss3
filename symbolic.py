@@ -219,11 +219,12 @@ def get_cifar10_experiment_params(dataset):
     return examples, create_cifar10_logic(animate_ix, inanimate_ix), create_cifar10_group_precision(animate_ix, inanimate_ix)
 
 
-def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=0.1):
-    return torch.stack([(target == tgt), (predictions[:, outside_group_ix] < -5).all(dim=1), (predictions[:, within_group_ix] >= -2).all(dim=1)], dim=1).all(dim=1)
-
 # def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=1.):
-#     return torch.stack([target == tgt] + [(predictions[:, outside_group_ix] <= -2).all(dim=1)] + [(predictions[:, within_group_ix] >= 1).all(dim=1)], dim=1).all(dim=1)
+#     return torch.stack([target == tgt] + [((predictions[:, outside_group_ix] + epsilon) < predictions[:, i].unsqueeze(1)).all(dim=1) for i in within_group_ix], dim=1).all(dim=1)
+
+def build_logic(target, predictions, tgt, within_group_ix, outside_group_ix, epsilon=1.):
+    return torch.stack([target == tgt] + [(predictions[:, outside_group_ix] <= -3).all(dim=1)] + [(predictions[:, within_group_ix] >= -2).all(dim=1)], dim=1).all(dim=1)
+
 
 def create_cifar100_logic(group_ixs):
 
@@ -269,7 +270,7 @@ def get_cifar100_experiment_params(dataset):
 
     for group in super_class_ix:
         for ix in group:
-            examples[ix, group] = -2
+            examples[ix, group] = -1
 
     examples[torch.arange(100), torch.arange(100)] = 1
 
