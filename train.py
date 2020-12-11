@@ -325,9 +325,9 @@ def train(train_loader, model, logic_net,
             preds, true = calc_logic(examples, torch.arange(model.num_classes).to(device))
             logic_loss += F.binary_cross_entropy_with_logits(preds, torch.ones_like(preds))
 
+            logic_optimizer.zero_grad()
             logic_loss.backward()
             torch.nn.utils.clip_grad_norm_(logic_net.parameters(), 5.)
-            logic_optimizer.zero_grad()
             logic_optimizer.step()
 
             logic_losses.update(logic_loss.data.item(), input.size(0))
