@@ -21,14 +21,15 @@ repeats = 1
 
 learning_rate = [0.1, .075]
 sloss = [True]
-lower_lim = [-7, -7.5, -8, -8.5, -9]
-upper_lim = [-3.5, -4, -4.5]
+lower_lim = [-9, -10, -11, -15]
+upper_lim = [-4.5, -5, -5.5]
 superclass = [False]
+#superclass = [False]
 
 # superclass = [True, False]
-# sloss = [False]
-# lower_lim = [0]
-# upper_lim = [0]
+#sloss = [False]
+#lower_lim = [0]
+#upper_lim = [0]
 
 settings = [(lr, sloss_, l_lim, u_lim, sclass, rep)
             for lr in learning_rate
