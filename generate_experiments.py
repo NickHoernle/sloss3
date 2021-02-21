@@ -19,10 +19,10 @@ base_call = (f"python train.py --dataset cifar100 "
 
 repeats = 1
 
-learning_rate = [0.1, .075]
+learning_rate = [0.05, .01]
 sloss = [True]
-lower_lim = [-9, -10, -11, -15]
-upper_lim = [-4.5, -5, -5.5]
+lower_lim = [-15, -25]
+upper_lim = [-4.5, -5]
 superclass = [False]
 #superclass = [False]
 
