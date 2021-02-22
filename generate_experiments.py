@@ -21,8 +21,8 @@ repeats = 1
 
 learning_rate = [0.05, .01]
 sloss = [True]
-lower_lim = [-15, -25]
-upper_lim = [-4.5, -5]
+lower_lim = [-20, -50]
+upper_lim = [-6, -8]
 superclass = [False]
 #superclass = [False]
 
